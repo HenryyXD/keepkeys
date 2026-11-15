@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <style>
+      /* ---- keepkeys demo tokens (spike) ---- */
+      :root {
+        --desk-a: #0b1020;
+        --desk-b: #1a1440;
+        --win: #0f1117;
+        --win-2: #161923;
+        --win-line: #262a36;
+        --page: #fbfbfd;
+        --page-line: #e7e8ee;
+        --ink: #e8eaf0;
+        --ink-dim: #8a90a2;
+        --ink-dark: #14161c;
+        --ink-dark-dim: #6b7080;
+        --accent: #7c5cff;
+        --ok: #3ddc97;
+        --radius-win: 14px;
+        --radius-ctl: 8px;
+        --shadow-win: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+        --font-ui: "Inter", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--desk-a); }
+      #root { position: relative; width: 1920px; height: 1080px; font-family: var(--font-ui); overflow: hidden;
+        background: radial-gradient(1200px 800px at 75% 20%, #2b1f6e 0%, transparent 60%),
+                    radial-gradient(1000px 700px at 10% 90%, #0e3b4a 0%, transparent 60%),
+                    linear-gradient(160deg, var(--desk-a), var(--desk-b)); }
+      #cam { position: absolute; inset: 0; transform-origin: 0 0; }
+
+      .win { position: absolute; border-radius: var(--radius-win); box-shadow: var(--shadow-win); overflow: hidden; }
+      .bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 15px; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; }
+      .bar .title { margin-left: 14px; font-weight: 500; }
+
+      #agent { left: 70px; top: 110px; width: 900px; height: 640px; background: var(--win); }
+      #agent .bar { background: var(--win-2); color: var(--ink-dim); border-bottom: 1px solid var(--win-line); }
+      #agent .body { padding: 26px 30px; font-family: var(--font-mono); font-size: 23px; line-height: 1.55; color: var(--ink); }
+      .line { white-space: pre; }
+      .prompt { color: var(--accent); font-weight: 700; }
+      .agent { color: var(--ink); white-space: normal; }
+      .bullet { color: var(--accent); }
+      .tool { color: var(--ink-dim); }
+      .tool b { color: var(--ink); font-weight: 500; }
+      .okc { color: var(--ok); }
+      .gap { height: 18px; }
+      .caret { display: inline-block; width: 11px; height: 24px; background: var(--ink); vertical-align: -4px; margin-left: 2px; }
+
+      #browser { left: 1010px; top: 150px; width: 840px; height: 540px; background: var(--page); }
+      #browser .bar { background: #eceef3; color: var(--ink-dark-dim); border-bottom: 1px solid var(--page-line); }
+      .url { margin-left: 18px; flex: 1; height: 28px; border-radius: 7px; background: #fff; border: 1px solid var(--page-line);
+        display: flex; align-items: center; padding: 0 12px; font-size: 14px; color: var(--ink-dark-dim); }
+      .url b { color: var(--ink-dark); font-weight: 500; }
+      .page { padding: 34px 40px; color: var(--ink-dark); }
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+      .logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #ff7a59, #ff3d7f); }
+      .page h2 { margin-top: 30px; font-size: 28px; letter-spacing: -0.02em; }
+      .page p { margin-top: 6px; color: var(--ink-dark-dim); font-size: 16px; }
+      .keyrow { margin-top: 26px; border: 1px solid var(--page-line); border-radius: 12px; padding: 20px 22px; background: #fff;
+        display: flex; align-items: center; gap: 18px; }
+      .keyrow .lbl { font-size: 14px; color: var(--ink-dark-dim); }
+      .keyrow .val { margin-top: 4px; font-family: var(--font-mono); font-size: 20px; letter-spacing: 0.02em; }
+      .keyrow .grow { flex: 1; }
+      #copy { position: relative; border-radius: var(--radius-ctl); padding: 11px 18px; font-size: 16px; font-weight: 600;
+        background: var(--ink-dark); color: #fff; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+      #copy .c2 { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #12a36b; opacity: 0; }
+      .row2 { margin-top: 12px; opacity: 0.55; }
+
+      #editor { left: 70px; top: 790px; width: 900px; height: 190px; background: var(--win); }
+      #editor .bar { background: var(--win-2); color: var(--ink-dim); border-bottom: 1px solid var(--win-line); height: 40px; }
+      .tab { padding: 6px 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 14px; color: var(--ink); background: #1f2330; }
+      #editor .body { padding: 18px 28px; font-family: var(--font-mono); font-size: 23px; line-height: 1.7; color: var(--ink-dim); }
+      .k { color: #7cc4ff; } .v { color: var(--ok); }
+      #newline { border-radius: 6px; padding: 0 8px; margin: 0 -8px; }
+
+      #toast { position: absolute; right: 36px; top: 36px; width: 470px; border-radius: 16px; padding: 18px 20px;
+        background: rgba(30, 32, 42, 0.92); box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08);
+        color: var(--ink); display: flex; gap: 14px; align-items: flex-start; }
+      .ticon { width: 40px; height: 40px; border-radius: 10px; background: var(--accent); display: flex; align-items: center; justify-content: center;
+        font-size: 22px; flex: none; position: relative; }
+      .ticon .okb { position: absolute; inset: 0; border-radius: 10px; background: var(--ok); display: flex; align-items: center; justify-content: center; color: #08130e; font-weight: 800; opacity: 0; }
+      .tt { position: relative; flex: 1; height: 50px; }
+      .tt > div { position: absolute; inset: 0; }
+      .tt .h { font-weight: 600; font-size: 17px; }
+      .tt .s { margin-top: 3px; font-size: 15px; color: var(--ink-dim); }
+      .tt .s code { font-family: var(--font-mono); color: var(--ink); }
+      .tapp { font-size: 12px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .08em; }
+
+      #cursor { position: absolute; left: 0; top: 0; width: 34px; height: 34px; transform-origin: 4px 4px; }
+      #ripple { position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.9); opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="11" data-width="1920" data-height="1080">
+      <div id="cam">
+        <div id="agent" class="win">
+          <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">~/my-app — agent</span></div>
+          <div class="body">
+            <div class="line"><span class="prompt">&gt; </span><span id="typed"></span><span class="caret" id="caret1"></span></div>
+            <div class="gap"></div>
+            <div class="agent" id="a1"><span class="bullet">● </span>Payments are wired up. The API needs <b>ACME_API_KEY</b>.</div>
+            <div class="agent" id="a2" style="margin-top:6px"><span class="bullet">● </span>Copy it from <u>dashboard.acme.dev</u>. I will pick it up from your clipboard, so it never touches this chat.</div>
+            <div class="gap"></div>
+            <div class="line tool" id="t1">  ⎿ <b>keepkeys</b> request_secret ACME_API_KEY</div>
+            <div class="line tool" id="t2">    <span id="wait">waiting for a copy…</span><span class="okc" id="t2ok">✓ saved · ends in …4242</span></div>
+            <div class="gap"></div>
+            <div class="agent" id="a3"><span class="bullet">● </span>Got it, your key ends in <b>…4242</b>. Running the payment tests…</div>
+          </div>
+        </div>
+
+        <div id="browser" class="win">
+          <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+            <div class="url">🔒&nbsp;<b>dashboard.acme.dev</b>/keys</div></div>
+          <div class="page">
+            <div class="brand"><span class="logo"></span>Acme</div>
+            <h2>API keys</h2>
+            <p>Use your secret key on the server. Never share it.</p>
+            <div class="keyrow">
+              <div class="grow"><div class="lbl">Secret key</div><div class="val">acme_sk_live_••••••••••••••••4242</div></div>
+              <div id="copy"><span>⧉</span> Copy<div class="c2">✓ Copied</div></div>
+            </div>
+            <div class="keyrow row2"><div class="grow"><div class="lbl">Publishable key</div><div class="val">acme_pk_live_8Hq2…Zt0c</div></div></div>
+          </div>
+        </div>
+
+        <div id="editor" class="win">
+          <div class="bar"><span class="tab">.env.local</span><span class="tab" style="background:transparent;color:var(--ink-dim)">.gitignore</span></div>
+          <div class="body">
+            <div><span class="k">DATABASE_URL</span>=<span class="v">postgres://localhost/app</span></div>
+            <div id="newline"><span class="k">ACME_API_KEY</span>=<span class="v">••••••••••••4242</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast">
+        <div class="ticon">🔑<div class="okb">✓</div></div>
+        <div style="flex:1">
+          <div class="tapp">keepkeys · now</div>
+          <div class="tt">
+            <div id="msg1"><div class="h">Copy ACME_API_KEY</div><div class="s">From <code>dashboard.acme.dev</code>, just click Copy.</div></div>
+            <div id="msg2" style="opacity:0"><div class="h">Got it ✓ ACME_API_KEY …4242</div><div class="s">Saved to <code>.env.local</code> · clipboard cleared</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="ripple"></div>
+      <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2.5v17.2l4.6-4.3 2.9 6.6 2.9-1.3-2.9-6.5h6.3z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const $ = (s) => document.querySelector(s);
+
+      gsap.set(["#a1", "#a2", "#t1", "#t2", "#a3", "#t2ok", "#newline"], { opacity: 0 });
+      gsap.set("#toast", { x: 540 });
+      gsap.set("#cursor", { x: 1500, y: 1000, opacity: 0 });
+
+      // intro
+      // windows are already on screen at 0 s (the first frame is the thumbnail)
+
+      // deterministic typing: one span per character
+      const text = "add payments to the API";
+      const typed = $("#typed");
+      let t = 0.5;
+      [...text].forEach((ch, i) => {
+        const s = document.createElement("span");
+        s.textContent = ch;
+        s.style.opacity = 0;
+        typed.appendChild(s);
+        t += 0.035 + ((i * 37) % 11) / 100 + (ch === " " ? 0.05 : 0);
+        tl.set(s, { opacity: 1 }, t);
+      });
+      tl.set("#caret1", { opacity: 0 }, t + 0.25);
+
+      // agent reply
+      const r = t + 0.45;
+      tl.fromTo("#a1", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, r);
+      tl.fromTo("#a2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, r + 0.35);
+      tl.fromTo(["#t1", "#t2"], { opacity: 0 }, { opacity: 1, duration: 0.25, stagger: 0.12 }, r + 0.8);
+
+      // notification
+      const n = r + 1.0;
+      tl.to("#toast", { x: 0, duration: 0.7, ease: "back.out(1.2)" }, n);
+
+      // camera push + cursor curve
+      const copy = $("#copy").getBoundingClientRect();
+      const bx = copy.left + copy.width / 2, by = copy.top + copy.height / 2;
+      const S = 1.32, tx = 1080 - S * bx, ty = 560 - S * by;
+      const sx = S * bx + tx, sy = S * by + ty;
+      const c = n + 0.8;
+      tl.to("#cam", { scale: S, x: tx, y: ty, duration: 1.3, ease: "power3.inOut" }, c);
+      tl.to("#cursor", { opacity: 1, duration: 0.2 }, c + 0.2);
+      tl.to("#cursor", { x: sx - 4, duration: 1.15, ease: "power2.inOut" }, c + 0.25);
+      tl.to("#cursor", { y: sy - 4, duration: 1.15, ease: "power3.inOut" }, c + 0.25);
+
+      // click
+      const k = c + 1.5;
+      tl.to("#cursor", { scale: 0.86, duration: 0.08, yoyo: true, repeat: 1 }, k);
+      tl.to("#copy", { scale: 0.94, duration: 0.08, yoyo: true, repeat: 1 }, k);
+      tl.set("#ripple", { x: sx, y: sy }, k);
+      tl.fromTo("#ripple", { scale: 0.2, opacity: 0.9 }, { scale: 1.4, opacity: 0, duration: 0.5, ease: "power2.out" }, k);
+      tl.to("#copy .c2", { opacity: 1, duration: 0.15 }, k + 0.1);
+
+      // keepkeys reacts
+      const g = k + 0.45;
+      tl.to("#msg1", { opacity: 0, y: -8, duration: 0.25 }, g);
+      tl.fromTo("#msg2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, g + 0.1);
+      tl.to(".ticon .okb", { opacity: 1, duration: 0.25 }, g);
+      tl.to("#toast", { scale: 1.03, duration: 0.12, yoyo: true, repeat: 1, ease: "power1.out" }, g);
+
+      // pull back to the agent and the file
+      const b = g + 0.6;
+      tl.to("#cursor", { opacity: 0, duration: 0.3 }, b);
+      tl.to("#cam", { scale: 1, x: 0, y: 0, duration: 1.1, ease: "power3.inOut" }, b);
+      tl.to("#wait", { opacity: 0, duration: 0.15 }, b + 0.3);
+      tl.to("#t2ok", { opacity: 1, duration: 0.25 }, b + 0.4);
+      tl.fromTo("#newline", { opacity: 0, x: -12, backgroundColor: "rgba(61,220,151,0.35)" },
+        { opacity: 1, x: 0, duration: 0.4, ease: "power2.out" }, b + 0.6);
+      tl.to("#newline", { backgroundColor: "rgba(61,220,151,0.10)", duration: 1.2 }, b + 1.0);
+      tl.fromTo("#a3", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, b + 1.0);
+      tl.to("#toast", { x: 540, duration: 0.6, ease: "power2.in" }, b + 2.4);
+      tl.set({}, {}, 11);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
