@@ -1,0 +1,39 @@
+{
+  "name": "keepkeys",
+  "version": "0.1.0",
+  "description": "Keys Excluded from Every Prompt: hand API keys to your AI coding agent without pasting them into the chat.",
+  "type": "module",
+  "bin": {
+    "keepkeys": "bin/keepkeys.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "secrets",
+    "api-keys",
+    "dotenv",
+    "env",
+    "mcp",
+    "claude-code",
+    "cursor",
+    "ai-agents",
+    "vibe-coding",
+    "security"
+  ],
+  "license": "MIT",
+  "author": "Rick Loubaque",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/keepkeys.git"
+  }
+}

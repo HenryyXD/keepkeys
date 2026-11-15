@@ -1,0 +1,22 @@
+{
+  "defaults": { "to": [".env.local"] },
+  "keys": {
+    "STRIPE_SECRET_KEY": {
+      "description": "Stripe secret key for the API server",
+      "where": "https://dashboard.stripe.com/apikeys",
+      "to": [".env.local", "server/.dev.vars"]
+    },
+    "STRIPE_WEBHOOK_SECRET": {
+      "description": "Stripe webhook signing secret",
+      "where": "https://dashboard.stripe.com/webhooks",
+      "to": ["server/.dev.vars"]
+    },
+    "OPENROUTER_API_KEY": {
+      "description": "LLM calls from the backend"
+    },
+    "POSTHOG_KEY": {
+      "description": "Product analytics",
+      "optional": true
+    }
+  }
+}
