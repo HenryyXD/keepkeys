@@ -20,7 +20,9 @@
 </p>
 
 <p align="center">
-  <img alt="The agent asks for ACME_API_KEY, a notification appears, you click Copy in the provider dashboard, keepkeys confirms 'Got it ✓ …4242', the masked line appears in .env.local and the agent carries on" src="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/agent-flow.gif" width="900">
+  <img alt="The agent asks for a key, you click Copy in the provider dashboard, keepkeys saves it to .env.local and shows only the last 4 characters" src="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/agent-flow.gif" width="900">
+  <br>
+  <sub>Keys keepkeys recognises (Stripe, OpenAI, Anthropic, …) are saved straight away; others, like this made-up Acme key, get a one-click confirm page first.</sub>
 </p>
 
 Your coding agent needs an API key in `.env.local`. Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
@@ -36,7 +38,7 @@ Your coding agent needs an API key in `.env.local`. Instead of pasting it into t
 npx keepkeys setup
 ```
 
-This registers keepkeys with Claude Code and Cursor; start a new agent session, and the next time the agent needs a key it asks you to copy it instead of pasting it. Details and other agents are under [Install](#install).
+This registers keepkeys with Claude Code and/or Cursor, whichever it finds; start a new agent session, and the next time the agent needs a key it asks you to copy it instead of pasting it. Details and other agents are under [Install](#install).
 
 ---
 

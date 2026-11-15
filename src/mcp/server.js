@@ -21,7 +21,7 @@ const INSTRUCTIONS = `keepkeys stores API keys and other secrets in the project'
 - If the user pastes a secret into the chat anyway, tell them to rotate it, then use request_secret to store the new one.
 - Do not read env files (.env, .env.*, .dev.vars) to check values; call secrets_status instead.
 - By default keepkeys takes the key from the clipboard. Before calling request_secret, tell the user in one line: "When the keepkeys notification appears, copy your <NAME> from <where to get it> (copy it again if you already did); I'll pick it up from the clipboard." Only a copy made after the request starts counts.
-- If keepkeys can't tell for sure that the copy is the right key (unknown format, wrong prefix), a browser page asks the user to confirm before anything is saved. You can't confirm for them.
+- If keepkeys can't tell for sure that the copy is the right key (unknown format, different prefix), a browser page asks the user to confirm before anything is saved. You can't confirm for them.
 - You only get a confirmation with the last 4 characters. After it, tell the user it was received (ending …xxxx) so they know the copy worked. On a timeout, the copy did not register: ask them to copy again, or call request_secret with method "browser" so they can paste into a page.
 - If you know the key's format, pass expected_prefixes (e.g. ["sk-ant-"] for Anthropic, ["sk_live_", "sk_test_"] for Stripe) or expected_pattern. Without them keepkeys guesses from the variable name and only warns when unsure; a format warning is not proof the key is wrong.
 - Ask for one secret at a time: a new request replaces one that is still waiting.

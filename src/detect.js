@@ -1,3 +1,4 @@
+import vm from 'node:vm';
 // Recognises secrets by their provider prefix and checks that the value fits
 // the variable name. Kept free of I/O so a future paste-detection hook can
 // reuse it.
@@ -19,7 +20,6 @@ export const PROVIDERS = [
   { id: 'xai', label: 'xAI', value: /^xai-/, name: /XAI|GROK/, shown: 'xai-…', where: 'https://console.x.ai' },
   { id: 'perplexity', label: 'Perplexity', value: /^pplx-/, name: /PERPLEXITY|PPLX/, shown: 'pplx-…', where: 'https://www.perplexity.ai/settings/api' },
   { id: 'huggingface', label: 'Hugging Face', value: /^hf_/, name: /^HF_|HUGGING/, shown: 'hf_…', where: 'https://huggingface.co/settings/tokens' },
-  // Slack: also xoxe- / xoxe.xoxp- (rotating and refresh tokens).
   // Slack: also xoxe- / xoxe.xoxp- (rotating and refresh tokens).
   { id: 'slack', label: 'Slack token', value: /^xox[abeprs]-|^xoxe\./, name: /SLACK/, shown: 'xoxb-… or xoxp-…', where: 'https://api.slack.com/apps' },
   { id: 'sendgrid', label: 'SendGrid', value: /^SG\.[A-Za-z0-9_-]{16,}\./, name: /SENDGRID/, shown: 'SG.…', where: 'https://app.sendgrid.com/settings/api_keys' },
@@ -68,8 +68,18 @@ export function normalizeExpectation({ prefixes, pattern } = {}) {
   return { prefixes: list, pattern: re, shown };
 }
 
+// Agent-supplied patterns run under a short time limit so a catastrophic one
+// cannot block the event loop; a timeout counts as no match (warns, never skips).
+function patternMatches(re, value) {
+  try {
+    return vm.runInNewContext('re.test(s)', { re, s: value }, { timeout: 50 });
+  } catch {
+    return false;
+  }
+}
+
 const matchesExpectation = (expect, value) =>
-  expect.prefixes.some((p) => value.startsWith(p)) || (expect.pattern ? expect.pattern.test(value) : false);
+  expect.prefixes.some((p) => value.startsWith(p)) || (expect.pattern ? patternMatches(expect.pattern, value) : false);
 
 const article = (word) => (/^[AEIOU]/i.test(word) ? 'an' : 'a');
 export const aKey = (label) => (label ? `${article(label)} ${label} key` : 'a key');
@@ -92,7 +102,7 @@ const looksLikeEmail = (v) => /^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$/.test(v);
  * (e.g. sk-or-v1- for OPENROUTER_API_KEY). Anything else that passes `ok` is
  * only saved after the person confirms it.
  */
-export function clipboardMatch(name, raw, { expect } = {}) {
+export function clipboardMatch(name, raw) {
   const { value } = inspect(name, raw ?? '');
   const ok =
     value.length >= 12 &&
@@ -106,9 +116,7 @@ export function clipboardMatch(name, raw, { expect } = {}) {
   const expected = providersForName(name);
   const provider = identify(value);
   const strong = ok && expected.length > 0 && expected.includes(provider);
-  // formatOk is for messages only; `strong` ignores the agent's hints on purpose.
-  const formatOk = expect ? matchesExpectation(expect, value) : null;
-  return { ok, strong, formatOk, value, provider, expected };
+  return { ok, strong, value, provider, expected };
 }
 
 /**

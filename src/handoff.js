@@ -151,7 +151,7 @@ export function collectViaClipboard(
         if (!initial) queued = text;
         return;
       }
-      const m = clipboardMatch(name, text, { expect: request.expect });
+      const m = clipboardMatch(name, text);
       // Diagnostics only: lengths and yes/no, never the text itself.
       debug(`clipboard ${initial ? 'at start' : 'changed'}: ${text.length} chars, looks like a key: ${m.ok}, provider prefix matches: ${m.strong}`);
       if (initial) {

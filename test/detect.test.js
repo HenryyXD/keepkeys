@@ -123,3 +123,11 @@ test('the cross-provider warning still shows when the agent passes a format', ()
   const { warnings } = inspect('OPENAI_API_KEY', 'sk-ant-api03-' + 'a'.repeat(40), { expect });
   assert.match(warnings.join(), /looks like an OpenAI variable, but the value looks like an Anthropic/);
 });
+
+test('a catastrophic expected_pattern cannot stall inspect', () => {
+  const expect = normalizeExpectation({ pattern: '^(a+)+$' });
+  const t0 = Date.now();
+  const { warnings } = inspect('ACME_KEY', 'a'.repeat(40) + '!', { expect });
+  assert.ok(Date.now() - t0 < 2000, 'inspect must return quickly');
+  assert.match(warnings.join(), /didn't recognise the format/);
+});

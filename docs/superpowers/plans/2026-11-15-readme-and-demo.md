@@ -261,4 +261,4 @@ git add src test SECURITY.md CHANGELOG.md
 git commit -m "request_secret: expected_prefixes/expected_pattern; accept the sk-ant- family"
 ```
 
-**Review Focus for Part 2:** (1) a prompt-injected agent passing a catch-all pattern must not bypass the confirm page (covered by the clipboard test); (2) a bad regex must fail the call cleanly, not crash the server (covered); (3) slow regexes: the pattern is capped at 200 chars and values at 4096 chars, which is acceptable; (4) no test may contain a real key: all values are built with `.repeat()`.
+**Review Focus for Part 2:** (1) a prompt-injected agent passing a catch-all pattern must not bypass the confirm page (covered by the clipboard test); (2) a bad regex must fail the call cleanly, not crash the server (covered); (3) slow regexes: length caps are not enough (a nested quantifier is exponential on short input), so the pattern runs under a 50 ms vm timeout and a timeout counts as no match (covered by a test); (4) no test may contain a real key: all values are built with `.repeat()`.
