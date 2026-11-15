@@ -224,6 +224,10 @@ keepkeys setup    # register the checkout with Claude Code / Cursor
 
 When it runs from a checkout or `npm link`, `setup` points the agents at your local copy (`node …/bin/keepkeys.js mcp`), so you can test changes before publishing.
 
+## Contributing
+
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 [MIT](LICENSE)
