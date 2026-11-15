@@ -21,6 +21,7 @@
 - "Safety rules" and "What this is NOT" keep their headings (anchors `#safety-rules`, `#what-this-is-not`) and content.
 - All copy in English.
 - Work on branch `readme-demo`; it lands through a PR (main is protected).
+- Task 6 (Part 2) is independent of Tasks 1–5 and touches only `src/`, `test/`, `SECURITY.md`, `CHANGELOG.md`. Run it first, so Task 5's CHANGELOG edit goes on top.
 
 ## Review Focus
 
@@ -179,3 +180,85 @@ gh pr create --title "README makeover and agent-flow demo GIF" --body-file <body
 ```
 
 Expected: PR open against `main`, all 10 CI checks green. Then do Task 4 Step 4 on the branch view.
+
+---
+
+## Part 2: Key format hints from the agent (fixes a false "wrong key" warning)
+
+**Requirement (from the owner, 2026-11-15):** `request_secret` for `ANTHROPIC_API_KEY` warned "the value does not have a known Anthropic prefix" for a real key starting `sk-ant-usr-`, which the Anthropic API accepted. The built-in prefix list is too narrow, and the agent, which often knows the format, has no way to say it.
+
+1. New optional `request_secret` parameters: `expected_prefixes` (array of strings) and `expected_pattern` (regex string). When given, they replace the built-in list for that request.
+2. The built-in list is only a guess for when the agent says nothing, and must accept each provider's known variants. Anthropic: the whole `sk-ant-` family (`sk-ant-api…`, `sk-ant-usr…`, `sk-ant-oat…`), not an exact sub-prefix.
+3. An unrecognised format is not a "wrong key" alarm. The message says what was checked and which expected prefix was used, e.g. `didn't recognise the format (expected sk-ant-…); check that this is the right key`.
+4. The tool description and the server instructions explain the new parameters, with examples for two providers. `where_to_get` stays as it is.
+5. Tests: agent prefix accepted; agent prefix rejected; `sk-ant-usr-…` accepted with no parameters; unknown variable name with no parameters gives no false alarm. No test reads or prints a real value.
+
+Unchanged rules: the value never appears in the chat or a log; confirmations show only the last 4 characters.
+
+**Decision (security, by the planner):** agent-supplied formats change **warnings and messages only**. They never let a clipboard copy skip the confirm page. Otherwise a prompt-injected agent could pass `expected_pattern: ".*"` and take whatever the person copies next without a click (see SECURITY.md, "Clipboard harvesting"). Only a built-in provider match is "strong" (saved without a click), as today.
+
+### Task 6: Expected-format parameters and a broader built-in list
+
+**Files:**
+- Modify: `src/detect.js` (PROVIDERS entry `anthropic`; `inspect`; `clipboardMatch`; new `normalizeExpectation`)
+- Modify: `src/core.js` (`review` passes `expect` through)
+- Modify: `src/handoff.js` (`collectViaClipboard` and `collectViaPage` read `request.expect`)
+- Modify: `src/mcp/server.js` (tool schema, `request` object, `INSTRUCTIONS`)
+- Modify: `SECURITY.md` (one line under "Clipboard harvesting"), `CHANGELOG.md` (one line)
+- Test: `test/detect.test.js`, `test/clipboard.test.js`, `test/mcp.test.js`
+
+**Interfaces:**
+- Produces:
+  - `normalizeExpectation({ prefixes, pattern }) -> { prefixes: string[], pattern: RegExp|null, shown: string } | null` in `src/detect.js`. Returns `null` when both are empty. Throws `Error` with a clear message when `pattern` is not a valid regex or is longer than 200 chars, when a prefix is empty or longer than 64 chars, or when more than 10 prefixes are given. `shown` is the text for messages, e.g. `"sk-ant-…"`, `"sk_live_… or sk_test_…"`, or `"/^re_[A-Za-z0-9]+$/"`.
+  - `inspect(name, raw, { expect } = {})` and `clipboardMatch(name, raw, { expect } = {})`: same return shapes as today. `clipboardMatch` adds `formatOk: boolean|null` (null when nothing was expected); `strong` is still computed from built-in providers only.
+  - `review(name, raw, { check, fetchImpl, expect })`.
+  - Request objects passed to `collectViaClipboard` / `collectViaPage` may carry `expect` (the normalized object).
+
+- [ ] **Step 1: Write the failing detect tests** in `test/detect.test.js` (fake values only, built with `.repeat()`):
+  - `sk-ant-usr keys are Anthropic keys with no parameters`: `inspect('ANTHROPIC_API_KEY', 'sk-ant-usr-' + 'a'.repeat(40)).warnings` deep-equals `[]` and `identify(...)?.id === 'anthropic'`; same for `sk-ant-oat01-` and `sk-ant-api03-`.
+  - `an agent-supplied prefix that matches gives no warning`: `inspect('ACME_KEY', 'acme_sk_' + 'b'.repeat(30), { expect: normalizeExpectation({ prefixes: ['acme_sk_'] }) }).warnings` deep-equals `[]`.
+  - `an agent-supplied prefix that does not match explains what was checked`: with `prefixes: ['acme_sk_']` and value `'other_' + 'c'.repeat(30)`, exactly one warning, matching `/didn't recognise the format \(expected acme_sk_…\)/` and not matching `/wrong/i`.
+  - `agent-supplied prefixes replace the built-in list`: `inspect('OPENAI_API_KEY', 'org-' + 'd'.repeat(30), { expect: normalizeExpectation({ prefixes: ['org-'] }) }).warnings` deep-equals `[]` (the built-in list would have warned).
+  - `expected_pattern is used when given`: `pattern: '^re_[A-Za-z0-9]{20,}$'` accepts `'re_' + 'e'.repeat(24)` with no warnings, and warns on `'re_short1'` with the "didn't recognise the format" text.
+  - `an unknown variable name with no parameters gives no format warning`: `inspect('MY_SERVICE_TOKEN', 'svc_7f3k9d2m5x8q1w4e').warnings` deep-equals `[]`.
+  - `normalizeExpectation rejects bad input`: throws for `{ pattern: '(' }`, for `{ prefixes: [''] }` and for 11 prefixes; returns `null` for `{}`.
+  - Update the existing `warns when the expected prefix is missing` to assert the new wording (contains `expected sk-ant-…`, no "wrong").
+
+- [ ] **Step 2: Run** `node --test test/detect.test.js` → the new tests FAIL (`normalizeExpectation` not exported, old wording).
+
+- [ ] **Step 3: Implement in `src/detect.js`**:
+  - `anthropic.value` becomes `/^sk-ant-[a-z]+\d*-/` (covers api03, admin01, usr, oat01). Review the other entries for the same mistake and widen only where a documented variant is missed, with a one-line comment per change.
+  - Each PROVIDERS entry gets a `shown` string for messages (`'sk-ant-…'`, `'sk-or-v1-…'`, …).
+  - `inspect`: when `expect` is given, check the value against `expect.prefixes` (startsWith) or `expect.pattern`. On a miss, push `` `didn't recognise the format (expected ${expect.shown}); check that this is the right key for ${name}` `` and skip the built-in "known prefix" check. Without `expect`, the built-in "no known prefix" warning uses the same wording with the first expected provider's `shown`. Keep the cross-provider warning and the Stripe/public-prefix warnings as they are.
+  - `clipboardMatch`: compute `formatOk` from `expect` when given; `strong` stays `ok && a built-in expected provider matched`.
+
+- [ ] **Step 4: Run** `node --test test/detect.test.js` → PASS.
+
+- [ ] **Step 5: Write the failing flow tests**:
+  - `test/mcp.test.js` → `request_secret accepts expected_prefixes and expected_pattern`: the `tools/list` schema for `request_secret` has `expected_prefixes` (array of string) and `expected_pattern` (string). Browser method with `expected_prefixes: ['acme_sk_']`; submitting `'acme_sk_' + 'f'.repeat(30) + 'END2'` gives a result matching `/ok: saved ACME_API_KEY \(ends in …END2\)/` with no `notes:`; stdout never contains the value.
+  - same file → `request_secret rejects an invalid expected_pattern`: `expected_pattern: '('` gives `isError: true` and text mentioning `expected_pattern`.
+  - `test/clipboard.test.js` → `an agent-supplied format never skips the confirm page`: MCP clipboard request for `ACME_API_KEY` with `expected_pattern: '.*'`; copying `'acme_sk_' + 'g'.repeat(30)` opens the confirm page (same assertion style as `an unrecognised key is saved only after the person confirms it`), and nothing is written before confirming.
+
+- [ ] **Step 6: Run** `node --test test/mcp.test.js test/clipboard.test.js` → the new tests FAIL.
+
+- [ ] **Step 7: Wire it through**:
+  - `src/mcp/server.js` schema properties:
+    - `expected_prefixes`: `{ type: 'array', items: { type: 'string' }, maxItems: 10, description: 'Optional. Prefixes a valid key starts with, if you know them, e.g. ["sk-ant-"] for Anthropic or ["sk_live_", "sk_test_", "rk_live_", "rk_test_"] for Stripe. Replaces keepkeys\' built-in guess for this request. Only used to warn the user; it never skips their confirmation.' }`
+    - `expected_pattern`: `{ type: 'string', description: 'Optional. A JavaScript regex a valid key matches, e.g. "^re_[A-Za-z0-9_]{20,}$" for Resend. Use instead of or together with expected_prefixes.' }`
+    - In the handler, call `normalizeExpectation`; on a throw, raise a `ToolError` naming the bad parameter. Put the result on `request.expect`.
+  - `INSTRUCTIONS` gets one bullet: "If you know the key's format, pass expected_prefixes (e.g. ["sk-ant-"] for Anthropic, ["sk_live_", "sk_test_"] for Stripe) or expected_pattern. Without them keepkeys guesses from the variable name and only warns when unsure; a format warning is not proof the key is wrong."
+  - `src/handoff.js`: pass `{ expect: request.expect }` to `clipboardMatch` and to `review` (through `collectViaPage`).
+  - `src/core.js`: `review` forwards `expect` to `inspect`.
+  - `SECURITY.md`, under "Clipboard harvesting": "Formats the agent passes (`expected_prefixes`, `expected_pattern`) only shape warnings; they never let a copy be saved without the confirm page."
+  - `CHANGELOG.md`: "`request_secret` takes optional `expected_prefixes` / `expected_pattern`; the built-in Anthropic check accepts the whole `sk-ant-` family; format warnings say what was checked instead of calling the key wrong."
+
+- [ ] **Step 8: Run** `npm test` → all pass, 0 fail. Then `git grep -n "known .* prefix" src` → no output (old wording gone).
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src test SECURITY.md CHANGELOG.md
+git commit -m "request_secret: expected_prefixes/expected_pattern; accept the sk-ant- family"
+```
+
+**Review Focus for Part 2:** (1) a prompt-injected agent passing a catch-all pattern must not bypass the confirm page (covered by the clipboard test); (2) a bad regex must fail the call cleanly, not crash the server (covered); (3) slow regexes: the pattern is capped at 200 chars and values at 4096 chars, which is acceptable; (4) no test may contain a real key: all values are built with `.repeat()`.
