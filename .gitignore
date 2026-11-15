@@ -4,3 +4,7 @@ node_modules/
 .env.*
 !.env.example
 .dev.vars
+
+# HyperFrames demo working files
+docs/demo/agent-flow/.hyperframes/
+docs/demo/agent-flow/renders/
