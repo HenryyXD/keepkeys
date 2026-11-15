@@ -40,17 +40,21 @@
         display: flex; align-items: center; padding: 0 12px; font-size: 16px; color: var(--ink-dark-dim); }
       .url b { color: var(--ink-dark); font-weight: 500; }
       .page { padding: 34px 40px; color: var(--ink-dark); }
-      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; }
+      /* fixed heights/line-heights in the dashboard: the Copy button's position does not depend on font loading */
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; height: 28px; }
       .logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #ff7a59, #ff3d7f); }
-      .page h2 { margin-top: 30px; font-size: 28px; letter-spacing: -0.02em; }
-      .page p { margin-top: 6px; color: var(--ink-dark-dim); font-size: 18px; }
-      .keyrow { margin-top: 26px; border: 1px solid var(--page-line); border-radius: 12px; padding: 20px 22px; background: #fff;
+      .page h2 { margin-top: 30px; font-size: 28px; line-height: 34px; height: 34px; letter-spacing: -0.02em; }
+      .page p { margin-top: 6px; color: var(--ink-dark-dim); font-size: 18px; line-height: 24px; height: 24px; }
+      .keyrow { position: relative; height: 92px; margin-top: 26px; border: 1px solid var(--page-line); border-radius: 12px; padding: 20px 22px; background: #fff;
         display: flex; align-items: center; gap: 18px; }
-      .keyrow .lbl { font-size: 16px; color: var(--ink-dark-dim); }
-      .keyrow .val { margin-top: 4px; font-family: var(--font-mono); font-size: 20px; letter-spacing: 0.02em; }
+      .keyrow .lbl { font-size: 16px; line-height: 20px; height: 20px; color: var(--ink-dark-dim); }
+      .keyrow .val { margin-top: 4px; font-family: var(--font-mono); font-size: 20px; line-height: 26px; height: 26px; letter-spacing: 0.02em; }
       .keyrow .grow { flex: 1; }
-      #copy { position: relative; border-radius: var(--radius-ctl); padding: 12px 20px; font-size: 20px; font-weight: 600;
-        background: var(--ink-dark); color: #fff; display: flex; align-items: center; gap: 8px; overflow: hidden; }
+      .keyrow .grow.has-copy { margin-right: 150px; }
+      /* COPY_* in the script must match: browser (1010,150) + bar 44 + page pad 34 + brand 28 + 30 + h2 34 + 6 + p 24
+         + 26 = keyrow top 376; + border 1 + top 20 = 397, centre y 422. x: 1850 - 40 - 1 - 22 = right 1787, centre 1721. */
+      #copy { position: absolute; right: 22px; top: 20px; width: 132px; height: 50px; border-radius: var(--radius-ctl); font-size: 20px; font-weight: 600;
+        background: var(--ink-dark); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; overflow: hidden; }
       #copy .c2 { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #12a36b; opacity: 0; }
       .row2 { margin-top: 12px; }
       .row2 .val { color: var(--ink-dark-dim); }
@@ -80,7 +84,7 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="9" data-width="1920" data-height="1080">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="9.3" data-width="1920" data-height="1080">
       <div id="cam">
         <div id="agent" class="win">
           <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">~/my-app — agent</span></div>
@@ -105,7 +109,7 @@
             <h2>API keys</h2>
             <p>Use your secret key on the server. Never share it.</p>
             <div class="keyrow">
-              <div class="grow"><div class="lbl">Secret key</div><div class="val">acme_sk_live_••••••••••••••••4242</div></div>
+              <div class="grow has-copy"><div class="lbl">Secret key</div><div class="val">acme_sk_live_••••••••••••••••4242</div></div>
               <div id="copy"><span data-layout-allow-overlap>⧉</span> Copy<div class="c2">✓ Copied</div></div>
             </div>
             <div class="keyrow row2"><div class="grow"><div class="lbl">Publishable key</div><div class="val">acme_pk_live_8Hq2…Zt0c</div></div></div>
@@ -173,8 +177,9 @@
       tl.to("#toast", { x: 0, duration: 0.56, ease: "back.out(1.2)" }, n);
 
       // light camera push toward the dashboard; the agent window's right part stays on screen
-      const copy = $("#copy").getBoundingClientRect();
-      const bx = copy.left + copy.width / 2, by = copy.top + copy.height / 2;
+      // Copy button centre from fixed layout constants (see the #copy CSS), not measured, so font loading can't shift the aim
+      const COPY_X = 1721, COPY_Y = 422;
+      const bx = COPY_X, by = COPY_Y;
       const S = 1.15, tx = 1450 - S * bx, ty = 480 - S * by;
       const sx = S * bx + tx, sy = S * by + ty;
       const c = n + 0.64;
@@ -205,13 +210,21 @@
       tl.to("#wait", { opacity: 0, duration: 0.12 }, b + 0.24);
       tl.set("#wait", { display: "none" }, b + 0.36); // "✓ saved" takes its place instead of sitting after it
       tl.to("#t2ok", { opacity: 1, duration: 0.2 }, b + 0.36);
-      tl.fromTo("#newline", { opacity: 0, x: -12, backgroundColor: "rgba(61,220,151,0.35)" },
+      tl.fromTo("#newline", { opacity: 0, x: -12, backgroundColor: "rgba(61,220,151,0.28)" },
         { opacity: 1, x: 0, duration: 0.32, ease: "power2.out" }, b + 0.48);
       tl.to("#newline", { backgroundColor: "rgba(61,220,151,0.10)", duration: 0.96 }, b + 0.8);
-      tl.fromTo("#a3", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, b + 0.8);
-      // toast leaves early enough that the final frame holds >= 1.2 s before the loop
-      tl.to("#toast", { x: 720, duration: 0.48, ease: "power2.in" }, b + 1.36);
-      tl.set({}, {}, 9);
+      tl.fromTo("#a3", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, b + 0.44);
+      tl.to("#toast", { x: 720, duration: 0.48, ease: "power2.in" }, b + 1.3);
+
+      // the end is derived from the last beat: hold the final frame HOLD seconds after the toast has left
+      const HOLD = 1.6;
+      const END = Math.round((b + 1.3 + 0.48 + HOLD) * 100) / 100;
+      const root = document.getElementById("root");
+      if (Math.abs(END - Number(root.dataset.duration)) > 0.01) {
+        console.error("agent-flow: data-duration is " + root.dataset.duration + " but the timeline ends at " + END + "; update the root attribute");
+        root.dataset.duration = String(END);
+      }
+      tl.set({}, {}, END);
 
       window.__timelines["main"] = tl;
       tl.seek(0);
