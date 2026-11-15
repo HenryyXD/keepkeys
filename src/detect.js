@@ -47,16 +47,22 @@ export function providersForName(name) {
  * into something inspect() can check. Returns null when there are none.
  * Hints only shape warnings; they never make a copy "strong".
  */
+// The agent's text ends up on the confirm page the person reads, so it is kept
+// to visible ASCII with no spaces: a key format, never a sentence.
+const KEY_TEXT = /^[\x21-\x7e]+$/;
+
 export function normalizeExpectation({ prefixes, pattern } = {}) {
   const list = Array.isArray(prefixes) ? prefixes : prefixes == null ? [] : null;
   if (list === null) throw new Error('expected_prefixes must be an array of strings');
   if (list.length > 10) throw new Error('expected_prefixes: at most 10 prefixes');
   for (const p of list) {
     if (typeof p !== 'string' || !p.length || p.length > 64) throw new Error('expected_prefixes: each prefix must be 1 to 64 characters');
+    if (!KEY_TEXT.test(p)) throw new Error('expected_prefixes: prefixes may only contain visible ASCII characters, no spaces');
   }
   let re = null;
   if (pattern != null && pattern !== '') {
     if (typeof pattern !== 'string' || pattern.length > 200) throw new Error('expected_pattern: must be a regex string of at most 200 characters');
+    if (!KEY_TEXT.test(pattern)) throw new Error('expected_pattern: may only contain visible ASCII characters, no spaces (use \\s if needed)');
     try {
       re = new RegExp(pattern);
     } catch {
@@ -70,11 +76,19 @@ export function normalizeExpectation({ prefixes, pattern } = {}) {
 
 // Agent-supplied patterns run under a short time limit so a catastrophic one
 // cannot block the event loop; a timeout counts as no match (warns, never skips).
+// One context and one compiled script, reused for every test.
+const patternContext = vm.createContext({ re: null, s: '' });
+const patternScript = new vm.Script('re.test(s)');
 function patternMatches(re, value) {
+  patternContext.re = re;
+  patternContext.s = value;
   try {
-    return vm.runInNewContext('re.test(s)', { re, s: value }, { timeout: 50 });
+    return patternScript.runInContext(patternContext, { timeout: 50 }) === true;
   } catch {
     return false;
+  } finally {
+    patternContext.re = null;
+    patternContext.s = '';
   }
 }
 
@@ -157,7 +171,9 @@ export function inspect(name, raw, { expect } = {}) {
 
   const unrecognised = (shown) => `didn't recognise the format (expected ${shown}); check that this is the right key for ${name}`;
 
-  if (expect && !matchesExpectation(expect, value)) warnings.push(unrecognised(expect.shown));
+  if (expect && !matchesExpectation(expect, value)) {
+    warnings.push(`didn't recognise the format (the agent said to expect ${expect.shown}); check that this is the right key for ${name}`);
+  }
   if (provider && expected.length && !expected.includes(provider)) {
     warnings.push(
       `${name} looks like ${article(expected[0].label)} ${expected[0].label} variable, but the value looks like ${article(provider.label)} ${provider.label}`,

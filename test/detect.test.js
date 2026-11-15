@@ -88,7 +88,7 @@ test('an agent-supplied prefix that does not match explains what was checked', (
   const expect = normalizeExpectation({ prefixes: ['acme_sk_'] });
   const { warnings } = inspect('ACME_KEY', 'other_' + 'c'.repeat(30), { expect });
   assert.equal(warnings.length, 1);
-  assert.match(warnings[0], /didn't recognise the format \(expected acme_sk_…\)/);
+  assert.match(warnings[0], /didn't recognise the format \(the agent said to expect acme_sk_…\)/);
   assert.doesNotMatch(warnings[0], /wrong/i);
 });
 
@@ -114,6 +114,12 @@ test('normalizeExpectation rejects bad input', () => {
   assert.throws(() => normalizeExpectation({ prefixes: [''] }), /expected_prefixes/);
   assert.throws(() => normalizeExpectation({ prefixes: ['a'.repeat(65)] }), /expected_prefixes/);
   assert.throws(() => normalizeExpectation({ prefixes: Array.from({ length: 11 }, (_, i) => 'p' + i) }), /expected_prefixes/);
+  // The agent's text reaches the confirm page, so it can't be a sentence or hold control characters.
+  assert.throws(() => normalizeExpectation({ prefixes: ['verified, safe to save '] }), /expected_prefixes/);
+  assert.throws(() => normalizeExpectation({ prefixes: ['sk-\nok'] }), /expected_prefixes/);
+  assert.throws(() => normalizeExpectation({ prefixes: ['sk-✓'] }), /expected_prefixes/);
+  assert.throws(() => normalizeExpectation({ pattern: '^sk- this key is fine' }), /expected_pattern/);
+  assert.ok(normalizeExpectation({ pattern: '^re_\\S{20,}$' }));
   assert.equal(normalizeExpectation({}), null);
   assert.equal(normalizeExpectation({ prefixes: [] }), null);
 });

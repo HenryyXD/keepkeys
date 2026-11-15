@@ -56,11 +56,11 @@ const TOOLS = [
           items: { type: 'string' },
           maxItems: 10,
           description:
-            'Optional. Prefixes a valid key starts with, if you know them, e.g. ["sk-ant-"] for Anthropic or ["sk_live_", "sk_test_", "rk_live_", "rk_test_"] for Stripe. Replaces the built-in guess for this request. Only used to warn the user; it never skips their confirmation.',
+            'Optional. Prefixes a valid key starts with, if you know them, e.g. ["sk-ant-"] for Anthropic or ["sk_live_", "sk_test_", "rk_live_", "rk_test_"] for Stripe. Used instead of the built-in prefix guess for this variable name (a value that clearly belongs to another known provider is still flagged). Visible ASCII only, no spaces. Only used to warn the user; it never skips their confirmation.',
         },
         expected_pattern: {
           type: 'string',
-          description: 'Optional. A JavaScript regex a valid key matches, e.g. "^re_[A-Za-z0-9_]{20,}$" for Resend. Use instead of or together with expected_prefixes.',
+          description: 'Optional. A JavaScript regex a valid key matches, e.g. "^re_[A-Za-z0-9_]{20,}$" for Resend. Visible ASCII only, no spaces (use \\s). Use instead of or together with expected_prefixes.',
         },
         method: {
           type: 'string',
