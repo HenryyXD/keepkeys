@@ -22,8 +22,7 @@ const mp4 = join(tmp, "agent-flow.mp4");
 
 try {
   const render = spawnSync(
-    "npx",
-    ["--yes", "hyperframes@0.9.53", "render", "--fps", "30", "-o", `"${mp4}"`],
+    `npx --yes hyperframes@0.9.53 render --fps 30 -o "${mp4}"`,
     {
       cwd: compDir,
       stdio: "inherit",
@@ -32,8 +31,7 @@ try {
     },
   );
   if (render.status !== 0 || !existsSync(mp4)) {
-    console.error("HyperFrames render failed.");
-    process.exit(1);
+    throw new Error("HyperFrames render failed.");
   }
 
   const toGif = (fps, width) => {
@@ -47,8 +45,7 @@ try {
       { stdio: "inherit" },
     );
     if (r.status !== 0) {
-      console.error("FFmpeg GIF conversion failed.");
-      process.exit(1);
+      throw new Error("FFmpeg GIF conversion failed.");
     }
     return statSync(gifPath).size;
   };
@@ -62,12 +59,14 @@ try {
     size = toGif(fps, width);
   }
   if (size > 10 * MB) {
-    console.error(`GIF is ${(size / MB).toFixed(2)} MB, over the 10 MB limit.`);
-    process.exit(1);
+    throw new Error(`GIF is ${(size / MB).toFixed(2)} MB, over the 10 MB limit.`);
   }
   console.log(
     `docs/agent-flow.gif: ${(size / MB).toFixed(2)} MB (${fps} fps, ${width}px wide, loop forever)`,
   );
+} catch (err) {
+  console.error(err.message);
+  process.exitCode = 1;
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }
