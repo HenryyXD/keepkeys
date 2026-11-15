@@ -117,3 +117,9 @@ test('normalizeExpectation rejects bad input', () => {
   assert.equal(normalizeExpectation({}), null);
   assert.equal(normalizeExpectation({ prefixes: [] }), null);
 });
+
+test('the cross-provider warning still shows when the agent passes a format', () => {
+  const expect = normalizeExpectation({ prefixes: ['sk-'] });
+  const { warnings } = inspect('OPENAI_API_KEY', 'sk-ant-api03-' + 'a'.repeat(40), { expect });
+  assert.match(warnings.join(), /looks like an OpenAI variable, but the value looks like an Anthropic/);
+});

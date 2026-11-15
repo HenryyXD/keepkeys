@@ -149,13 +149,12 @@ export function inspect(name, raw, { expect } = {}) {
 
   const unrecognised = (shown) => `didn't recognise the format (expected ${shown}); check that this is the right key for ${name}`;
 
-  if (expect) {
-    if (!matchesExpectation(expect, value)) warnings.push(unrecognised(expect.shown));
-  } else if (provider && expected.length && !expected.includes(provider)) {
+  if (expect && !matchesExpectation(expect, value)) warnings.push(unrecognised(expect.shown));
+  if (provider && expected.length && !expected.includes(provider)) {
     warnings.push(
       `${name} looks like ${article(expected[0].label)} ${expected[0].label} variable, but the value looks like ${article(provider.label)} ${provider.label}`,
     );
-  } else if (!provider && expected.length) {
+  } else if (!provider && expected.length && !expect) {
     warnings.push(unrecognised(expected[0].shown));
   }
   if (provider?.id === 'stripe-publishable' && /SECRET/.test(upper)) {
