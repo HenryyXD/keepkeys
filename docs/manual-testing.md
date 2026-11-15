@@ -54,5 +54,4 @@ Also check that `.env.local` lands **in the project you have open**. The setup p
 ## What is known not to work yet
 
 - Platform destinations (`wrangler:`, `vercel:`, `gh:`) report "planned".
-- The demo GIF shows the terminal flow, not the clipboard flow.
-- CI has never run on macOS/Linux; only Windows was tested by hand.
+- Only Windows was tested by hand.

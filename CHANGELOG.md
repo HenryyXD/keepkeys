@@ -20,3 +20,4 @@ First version.
 - Provider prefix checks, paste clean-up, optional `--check`.
 - MCP server: `request_secret` (`method`: clipboard or browser; results include the next step for the agent), `request_missing_secrets`, `secrets_status`.
 - `setup` for Claude Code and Cursor, `--project`, `--rules`, `--remove`, `--print`.
+- README: new header and agent-flow demo GIF.

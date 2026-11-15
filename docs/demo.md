@@ -6,6 +6,11 @@ This is the story the README tells. `demo.tape` renders the terminal version wit
 vhs docs/demo.tape
 ```
 
+## Regenerating the GIFs
+
+- **Agent flow** (`docs/agent-flow.gif`): `npm run demo:render`. Needs Node 22+ and FFmpeg.
+- **Terminal flow** (`docs/demo.gif`): `vhs docs/demo.tape`.
+
 ## 1. The agent needs a key
 
 > **You:** Add Stripe checkout to the API.
