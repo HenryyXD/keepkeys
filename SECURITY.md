@@ -12,6 +12,7 @@ In scope:
 - Destination files are added to `.gitignore`, and keepkeys warns if one is already tracked by git.
 - **Clipboard harvesting:** an agent that was tricked into calling `request_secret` can't take what is already on the clipboard. Only a copy made after the request counts.
   - A copied value that keepkeys can't match to the provider the name expects (an unknown provider, a different prefix, any warning) is saved only after the person clicks Save on a local confirm page.
+  - Formats the agent passes (`expected_prefixes`, `expected_pattern`) only shape warnings; they never let a copy be saved without the confirm page.
   - The confirm page's address is never sent to the agent: not in tool results, not in MCP log notifications, not on the CLI's output. It appears on stderr only when no browser could be opened.
 - A request the client cancels (`notifications/cancelled`) stops watching immediately and is never answered. A newer request replaces an older one, so at most one watcher runs. The server exits when the client disconnects.
 

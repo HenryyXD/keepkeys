@@ -147,6 +147,31 @@ test('MCP request_secret uses the clipboard by default and tells the agent what 
   }
 });
 
+test('an agent-supplied format never skips the confirm page', async () => {
+  const p = project('');
+  const r = start(['mcp', '--root', p.dir], { cwd: p.dir, env: p.env });
+  const lines = () => r.out.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const send = (m) => r.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
+  const value = 'acme_sk_' + 'g'.repeat(30) + '7'; // a key needs a digit to count as one
+  try {
+    send({ id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } });
+    await waitFor(() => lines().find((m) => m.id === 1));
+    send({ id: 2, method: 'tools/call', params: { name: 'request_secret', arguments: { name: 'ACME_API_KEY', destinations: ['.env'], expected_pattern: '.*' } } });
+    await waitFor(() => r.out.stderr.includes('copy ACME_API_KEY now'));
+    fs.writeFileSync(p.clip, value);
+    const url = await waitForPageUrl(r.out);
+    assert.match(r.out.stderr, /to confirm the copied value/);
+    assert.equal(read(p.dir, '.env'), null, 'saved before confirming');
+    assert.equal((await post(url, 'confirm', { name: 'ACME_API_KEY', accept: true })).status, 200);
+    const res = await waitFor(() => lines().find((m) => m.id === 2), { timeoutMs: 15000 });
+    assert.match(res.result.content[0].text, /ok: saved ACME_API_KEY/);
+    assert.equal(read(p.dir, '.env'), `ACME_API_KEY=${value}\n`);
+    assert.ok(!r.out.stdout.includes(value));
+  } finally {
+    r.child.stdin.end();
+  }
+});
+
 // Uses the real system clipboard, so it only runs when asked; it restores the
 // previous clipboard text afterwards.
 test('real Windows clipboard', { skip: !(process.platform === 'win32' && process.env.KEEPKEYS_TEST_REAL_CLIPBOARD) && 'set KEEPKEYS_TEST_REAL_CLIPBOARD=1 on Windows' }, async () => {

@@ -8,9 +8,9 @@ import { validateName } from './paths.js';
  * Cleans the pasted value and collects everything the person should confirm.
  * Returns { value, provider, fixes, warnings, check }.
  */
-export async function review(name, raw, { check = false, fetchImpl } = {}) {
+export async function review(name, raw, { check = false, fetchImpl, expect } = {}) {
   validateName(name);
-  const result = inspect(name, raw);
+  const result = inspect(name, raw, { expect });
   result.check = null;
   if (check && result.value && result.provider) {
     result.check = await checkKey(result.provider, result.value, { fetchImpl });

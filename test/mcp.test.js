@@ -141,3 +141,43 @@ test('an unexpanded ${workspaceFolder} root is ignored', async () => {
     c.close();
   }
 });
+
+test('request_secret accepts expected_prefixes and expected_pattern', async () => {
+  const dir = tmpProject();
+  const c = client(dir);
+  try {
+    await c.init();
+    const tools = await c.call('tools/list', {});
+    const props = tools.result.tools.find((t) => t.name === 'request_secret').inputSchema.properties;
+    assert.equal(props.expected_prefixes.type, 'array');
+    assert.equal(props.expected_prefixes.items.type, 'string');
+    assert.equal(props.expected_pattern.type, 'string');
+    const value = 'acme_sk_' + 'f'.repeat(30) + 'END2';
+    const pending = c.call('tools/call', {
+      name: 'request_secret',
+      arguments: { name: 'ACME_API_KEY', method: 'browser', expected_prefixes: ['acme_sk_'] },
+    });
+    const url = await waitForPageUrl(c.p.out);
+    assert.equal((await post(url, 'submit', { name: 'ACME_API_KEY', value })).body.ok, true);
+    const res = await pending;
+    assert.equal(res.result.isError, undefined);
+    assert.match(res.result.content[0].text, /ok: saved ACME_API_KEY \(ends in …END2\)/);
+    assert.doesNotMatch(res.result.content[0].text, /notes:/);
+    assert.ok(!c.p.out.stdout.includes(value), 'value leaked to the agent');
+  } finally {
+    c.close();
+  }
+});
+
+test('request_secret rejects an invalid expected_pattern', async () => {
+  const dir = tmpProject();
+  const c = client(dir);
+  try {
+    await c.init();
+    const res = await c.call('tools/call', { name: 'request_secret', arguments: { name: 'ACME_API_KEY', method: 'browser', expected_pattern: '(' } });
+    assert.equal(res.result.isError, true);
+    assert.match(res.result.content[0].text, /expected_pattern/);
+  } finally {
+    c.close();
+  }
+});
