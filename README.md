@@ -216,7 +216,7 @@ See [BACKLOG.md](BACKLOG.md). The highlights:
 ## Development
 
 ```bash
-git clone https://github.com/OWNER/keepkeys && cd keepkeys
+git clone https://github.com/HenryyXD/keepkeys && cd keepkeys
 npm test          # node:test, no dependencies
 npm link          # use your checkout as `keepkeys` everywhere
 keepkeys setup    # register the checkout with Claude Code / Cursor
