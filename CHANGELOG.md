@@ -5,6 +5,7 @@
 First version.
 
 - `keepkeys`, `add`, `list`: hidden terminal prompt (one Ctrl+V submits), `--stdin`, and a local browser page (`--browser`).
+- `request_secret` takes optional `expected_prefixes` / `expected_pattern`; the built-in Anthropic check accepts the whole `sk-ant-` family; format warnings say what was checked instead of calling the key wrong.
 - Clipboard mode, the default when there is no terminal: the person just copies the key.
   - Only a copy made after the request counts; copying the same text again is noticed (Windows and macOS change counters).
   - Values without the expected provider prefix, or with warnings, are confirmed on a local page whose address the agent never sees.
@@ -19,3 +20,4 @@ First version.
 - Provider prefix checks, paste clean-up, optional `--check`.
 - MCP server: `request_secret` (`method`: clipboard or browser; results include the next step for the agent), `request_missing_secrets`, `secrets_status`.
 - `setup` for Claude Code and Cursor, `--project`, `--rules`, `--remove`, `--print`.
+- README: new header and agent-flow demo GIF.

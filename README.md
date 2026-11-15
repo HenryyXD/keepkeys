@@ -1,14 +1,44 @@
-# keepkeys
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/assets/keepkeys-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/assets/keepkeys-light.svg">
+    <img alt="keepkeys" src="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/assets/keepkeys-light.svg" width="360">
+  </picture>
+</p>
 
-**K**eys **E**xcluded from **E**very **P**rompt.
+<p align="center">
+  <a href="https://github.com/HenryyXD/keepkeys/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/HenryyXD/keepkeys/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Node 20 or newer" src="https://img.shields.io/badge/node-%E2%89%A520-339933.svg">
+  <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-zero-brightgreen.svg">
+</p>
 
-Your coding agent needs an API key in `.env.local`. Instead of pasting it into the chat, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
+<p align="center">
+  <b>Don't paste API keys into your AI chat. Just copy the key; keepkeys writes it to <code>.env.local</code>.</b>
+  <br>
+  <sub><b>K</b>eys <b>E</b>xcluded from <b>E</b>very <b>P</b>rompt</sub>
+</p>
 
-![The agent asks, you copy the key, done](docs/demo.gif)
+<p align="center">
+  <img alt="The agent asks for a key, you click Copy in the provider dashboard, keepkeys saves it to .env.local and shows only the last 4 characters" src="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/agent-flow.gif" width="900">
+  <br>
+  <sub>Keys keepkeys recognises (Stripe, OpenAI, Anthropic, …) are saved straight away; others, like this made-up Acme key, get a one-click confirm page first.</sub>
+</p>
+
+Your coding agent needs an API key in `.env.local`. Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
 
 - **Zero dependencies.** One `npx` command, Node 20+, Windows, macOS and Linux.
 - **Works with any agent.** It has an MCP server for Claude Code, Cursor and other MCP clients. A plain CLI covers everything else.
+- **The value stays out of the chat.** Tool results, logs and notifications show only the last 4 characters (`…4242`).
 - **Small and honest.** It doesn't try to be a vault (see [What this is NOT](#what-this-is-not)).
+
+## Quick start
+
+```bash
+npx keepkeys setup
+```
+
+This registers keepkeys with Claude Code and/or Cursor, whichever it finds; start a new agent session, and the next time the agent needs a key it asks you to copy it instead of pasting it. Details and other agents are under [Install](#install).
 
 ---
 
@@ -46,7 +76,7 @@ A click on "Copy" can fail without any sign. So keepkeys tells you what happened
 - **Notifications.** You get one while it waits ("copy STRIPE_SECRET_KEY now"), one when it gets the key ("Got it ✓ …4242"), and one when it ignores something you copied ("that didn't look like a Stripe key, copy it again").
 - **Only a new copy counts.** Whatever was on the clipboard before the request is never used, so a request can't quietly grab something you copied earlier. Copying the same key again does count (Windows and macOS count every copy; on Linux, copy something else first).
 - **Only key-shaped copies count.** Ordinary copies are ignored: sentences, URLs, file paths, emails, text with spaces.
-- **Unsure? It asks first.** A key with the prefix the name expects (`sk-or-v1-` for `OPENROUTER_API_KEY`, `sk_`/`rk_` for `STRIPE_SECRET_KEY`) is saved straight away. For anything else, a page asks *"Save the value ending …abcd?"* before saving. That covers unknown providers, a different prefix, or a warning such as a `pk_` key in a secret variable. The agent never learns that page's address, so it can't answer for you.
+- **Unsure? It asks first.** A key with the prefix the name expects (`sk-or-v1-` for `OPENROUTER_API_KEY`, `sk_`/`rk_` for `STRIPE_SECRET_KEY`) is saved straight away. For anything else, a page asks *"Save the value ending …abcd?"* before saving. That covers unknown providers, a different prefix, or a warning such as a `pk_` key in a secret variable. The agent can say what format to expect (`expected_prefixes`, e.g. `["sk-ant-"]`, or `expected_pattern`); that only sharpens the warning and never skips the page. The agent never learns that page's address, so it can't answer for you.
 - **The agent confirms in chat.** The result tells it to say "received, ends in …4242". If nothing arrives within 5 minutes, it is told the copy didn't register and to ask you again or switch to the browser page.
 - **You can check any time** with `npx keepkeys list` (or the `secrets_status` tool).
 
@@ -111,6 +141,12 @@ More detail is in [docs/claude-code.md](docs/claude-code.md) and [docs/cursor.md
 
 ## Using it yourself
 
+<p align="center">
+  <img alt="The CLI in your own terminal: keepkeys asks for a key, you copy it, it is saved" src="https://raw.githubusercontent.com/HenryyXD/keepkeys/main/docs/demo.gif" width="800">
+  <br>
+  <sub>The CLI in your own terminal</sub>
+</p>
+
 ```bash
 npx keepkeys                                   # what's missing? then ask for each one
 npx keepkeys add STRIPE_SECRET_KEY --to .env.local,server/.dev.vars --where https://dashboard.stripe.com/apikeys
@@ -120,6 +156,9 @@ npx keepkeys add ANTHROPIC_API_KEY --check               # one read-only call to
 npx keepkeys add GITHUB_TOKEN --to env:user              # a user environment variable instead of a file
 npx keepkeys list --json                                 # status for scripts and agents; never values
 ```
+
+<details>
+<summary><b>All <code>add</code> options</b></summary>
 
 | Option | Meaning |
 |---|---|
@@ -133,6 +172,8 @@ npx keepkeys list --json                                 # status for scripts an
 | `--check` | Validate with the provider: Anthropic, OpenAI, OpenRouter, Stripe, GitHub, Groq, Google, Hugging Face. |
 | `--yes` | Save even if the value looks wrong. |
 | `--root DIR` | Project directory (default: the current directory). |
+
+</details>
 
 ### The manifest: `.env.example` or `keepkeys.json`
 
@@ -152,10 +193,14 @@ PORT=3000            # a plain setting: not asked for
 SIGNING_SALT=abc123  # "# secret" makes keepkeys ask for it anyway
 ```
 
-**What counts as a secret:**
+<details>
+<summary><b>What counts as a secret</b></summary>
+
 - **Asked for:** entries with an empty or placeholder value (`<your key>`, `xxx`, `sk_test_...`), and names that say secret (`*_SECRET`, `*_TOKEN`, `*_API_KEY`, `*_PASSWORD`).
 - **Left alone:** other entries with a real-looking example value, such as `PORT=3000` or `NODE_ENV=development`. Those are settings.
 - **`# optional` and `# secret`** must be the whole comment line.
+
+</details>
 
 If you'd rather keep this out of `.env.example`, use `keepkeys.json` instead. It wins over `.env.example`:
 
@@ -175,11 +220,18 @@ If you'd rather keep this out of `.env.example`, use `keepkeys.json` instead. It
 
 ### Destinations
 
+Env files in the project, or `env:user` for a variable every new terminal sees. Prefer files.
+
+<details>
+<summary><b>How each destination is written</b></summary>
+
 - **Env files** (`.env`, `.env.*`, `*.env`, `.dev.vars`, `.envrc`): one `NAME=value` line (`export NAME=value` in `.envrc`, so direnv passes it on). An existing line is replaced in place; comments, other keys, CRLF line endings and a BOM are kept. Each file is added to `.gitignore`. keepkeys warns loudly if the file is **already committed**, because `.gitignore` can't fix that.
 - **`env:user`**: a variable every new terminal sees.
   - **Windows:** a user environment variable (HKCU). There is no `setx` 1024-character limit, and the value never appears on a command line.
   - **macOS/Linux:** one `export NAME='…'  # keepkeys` line in `~/.zshrc`, `~/.bashrc`/`~/.bash_profile`, or fish `conf.d`. It is replaced, never duplicated.
   - **Caveat:** it only applies to terminals opened afterwards, and **every program you run can read it.** Prefer files.
+
+</details>
 
 ## Safety rules
 

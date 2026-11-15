@@ -28,7 +28,6 @@ independent review of the first version. Roughly in order of value for effort.
 - **Linux: notice a re-copy of identical text** (there is no change counter; `wl-paste --watch` could help on Wayland).
 - **macOS: verify the `changeCount` path and notifications on real hardware**; they are covered only by CI with a fake clipboard.
 - **Make `add` and `fill` choose modes the same way.** Without a terminal, `add` waits on the clipboard, while `fill` (several keys) opens one browser page.
-- **Re-record the demo GIF** with the clipboard flow.
 
 ## Manifest
 

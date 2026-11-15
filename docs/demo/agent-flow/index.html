@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+    <link rel="stylesheet" href="tokens.css" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--desk-a); }
+      #root { position: relative; width: 1920px; height: 1080px; font-family: var(--font-ui); overflow: hidden;
+        background: radial-gradient(1200px 800px at 75% 20%, #2b1f6e 0%, transparent 60%),
+                    radial-gradient(1000px 700px at 10% 90%, #0e3b4a 0%, transparent 60%),
+                    linear-gradient(160deg, var(--desk-a), var(--desk-b)); }
+      #cam { position: absolute; inset: 0; transform-origin: 0 0; }
+
+      .win { position: absolute; border-radius: var(--radius-win); box-shadow: var(--shadow-win); overflow: hidden; }
+      .bar { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px; font-size: 15px; }
+      .dot { width: 12px; height: 12px; border-radius: 50%; }
+      .bar .title { margin-left: 14px; font-weight: 500; }
+
+      #agent { left: 70px; top: 110px; width: 900px; height: 640px; background: var(--win); }
+      #agent .bar { background: var(--win-2); color: var(--ink-dim); border-bottom: 1px solid var(--win-line); }
+      #agent .body { padding: 26px 30px; font-family: var(--font-mono); font-size: 23px; line-height: 1.55; color: var(--ink); }
+      .line { white-space: pre; }
+      .prompt { color: var(--accent); font-weight: 700; }
+      .agent { color: var(--ink); white-space: normal; }
+      .bullet { color: var(--accent-text); }
+      .tool { color: var(--ink-dim); }
+      .tool b { color: var(--ink); font-weight: 500; }
+      .okc { color: var(--ok); }
+      .gap { height: 18px; }
+      .caret { display: inline-block; width: 11px; height: 24px; background: var(--ink); vertical-align: -4px; margin-left: 2px; }
+
+      #browser { left: 1010px; top: 150px; width: 840px; height: 540px; background: var(--page); }
+      #browser .bar { background: #eceef3; color: var(--ink-dark-dim); border-bottom: 1px solid var(--page-line); }
+      .url { margin-left: 18px; flex: 1; height: 32px; border-radius: 7px; background: #fff; border: 1px solid var(--page-line);
+        display: flex; align-items: center; padding: 0 12px; font-size: 16px; color: var(--ink-dark-dim); }
+      .url b { color: var(--ink-dark); font-weight: 500; }
+      .page { padding: 34px 40px; color: var(--ink-dark); }
+      /* fixed heights/line-heights in the dashboard: the Copy button's position does not depend on font loading */
+      .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; height: 28px; }
+      .logo { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, #ff7a59, #ff3d7f); }
+      .page h2 { margin-top: 30px; font-size: 28px; line-height: 34px; height: 34px; letter-spacing: -0.02em; }
+      .page p { margin-top: 6px; color: var(--ink-dark-dim); font-size: 18px; line-height: 24px; height: 24px; }
+      .keyrow { position: relative; height: 92px; margin-top: 26px; border: 1px solid var(--page-line); border-radius: 12px; padding: 20px 22px; background: #fff;
+        display: flex; align-items: center; gap: 18px; }
+      .keyrow .lbl { font-size: 16px; line-height: 20px; height: 20px; color: var(--ink-dark-dim); }
+      .keyrow .val { margin-top: 4px; font-family: var(--font-mono); font-size: 20px; line-height: 26px; height: 26px; letter-spacing: 0.02em; }
+      .keyrow .grow { flex: 1; }
+      .keyrow .grow.has-copy { margin-right: 150px; }
+      /* COPY_* in the script must match: browser (1010,150) + bar 44 + page pad 34 + brand 28 + 30 + h2 34 + 6 + p 24
+         + 26 = keyrow top 376; + border 1 + top 20 = 397, centre y 422. x: 1850 - 40 - 1 - 22 = right 1787, centre 1721. */
+      #copy { position: absolute; right: 22px; top: 20px; width: 132px; height: 50px; border-radius: var(--radius-ctl); font-size: 20px; font-weight: 600;
+        background: var(--ink-dark); color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; overflow: hidden; }
+      #copy .c2 { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #12a36b; opacity: 0; }
+      .row2 { margin-top: 12px; }
+      .row2 .val { color: var(--ink-dark-dim); }
+
+      #editor { left: 70px; top: 790px; width: 900px; height: 190px; background: var(--win); }
+      #editor .bar { background: var(--win-2); color: var(--ink-dim); border-bottom: 1px solid var(--win-line); height: 40px; }
+      .tab { padding: 6px 12px; border-radius: 6px; font-family: var(--font-mono); font-size: 17px; color: var(--ink); background: #1f2330; }
+      #editor .body { padding: 18px 28px; font-family: var(--font-mono); font-size: 23px; line-height: 1.7; color: var(--ink-dim); }
+      .k { color: #7cc4ff; } .v { color: var(--ok); }
+      #newline { border-radius: 6px; padding: 0 8px; margin: 0 -8px; color: var(--ink); }
+
+      #toast { position: absolute; right: 36px; top: 24px; width: 640px; border-radius: 18px; padding: 18px 22px;
+        background: rgba(30, 32, 42, 0.92); box-shadow: 0 20px 60px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08);
+        color: var(--ink); display: flex; gap: 14px; align-items: flex-start; }
+      .ticon { width: 56px; height: 56px; border-radius: 12px; background: var(--accent); display: flex; align-items: center; justify-content: center;
+        font-size: 30px; flex: none; position: relative; color: #000; /* emoji glyph; keeps the contrast check happy */ }
+      .ticon .okb { position: absolute; inset: 0; border-radius: 12px; font-size: 30px; background: var(--ok); display: flex; align-items: center; justify-content: center; color: #08130e; font-weight: 800; opacity: 0; }
+      .tt { position: relative; flex: 1; height: 64px; }
+      .tt > div { position: absolute; inset: 0; }
+      .tt .h { font-weight: 600; font-size: 26px; }
+      .tt .s { margin-top: 4px; font-size: 21px; color: var(--ink-dim); }
+      .tt .s code { font-family: var(--font-mono); color: var(--ink); }
+      .tapp { font-size: 15px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .08em; }
+
+      #cursor { position: absolute; left: 0; top: 0; width: 34px; height: 34px; transform-origin: 4px 4px; }
+      #ripple { position: absolute; left: 0; top: 0; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; border: 3px solid rgba(255,255,255,.9); opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="9.3" data-width="1920" data-height="1080">
+      <div id="cam">
+        <div id="agent" class="win">
+          <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">~/my-app — agent</span></div>
+          <div class="body">
+            <div class="line"><span class="prompt">&gt; </span><span id="typed"></span><span class="caret" id="caret1"></span></div>
+            <div class="gap"></div>
+            <div class="agent" id="a1"><span class="bullet">● </span>Payments are wired up. The API needs <b>ACME_API_KEY</b>.</div>
+            <div class="agent" id="a2" style="margin-top:6px"><span class="bullet">● </span>Copy it from <u>dashboard.acme.dev</u>. I will pick it up from your clipboard, so it never touches this chat.</div>
+            <div class="gap"></div>
+            <div class="line tool" id="t1">  ⎿ <b>keepkeys</b> request_secret ACME_API_KEY</div>
+            <div class="line tool" id="t2">    <span id="wait">waiting for a copy…</span><span class="okc" id="t2ok">✓ saved · ends in …4242</span></div>
+            <div class="gap"></div>
+            <div class="agent" id="a3"><span class="bullet">● </span>Got it, your key ends in <b>…4242</b>. Running the payment tests…</div>
+          </div>
+        </div>
+
+        <div id="browser" class="win">
+          <div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+            <div class="url">🔒&nbsp;<b>dashboard.acme.dev</b>/keys</div></div>
+          <div class="page">
+            <div class="brand"><span class="logo"></span>Acme</div>
+            <h2>API keys</h2>
+            <p>Use your secret key on the server. Never share it.</p>
+            <div class="keyrow">
+              <div class="grow has-copy"><div class="lbl">Secret key</div><div class="val">acme_sk_live_••••••••••••••••4242</div></div>
+              <div id="copy"><span data-layout-allow-overlap>⧉</span> Copy<div class="c2">✓ Copied</div></div>
+            </div>
+            <div class="keyrow row2"><div class="grow"><div class="lbl">Publishable key</div><div class="val">acme_pk_live_8Hq2…Zt0c</div></div></div>
+          </div>
+        </div>
+
+        <div id="editor" class="win">
+          <div class="bar"><span class="tab">.env.local</span><span class="tab" style="background:transparent;color:var(--ink-dim)">.gitignore</span></div>
+          <div class="body">
+            <div><span class="k">DATABASE_URL</span>=<span class="v">postgres://localhost/app</span></div>
+            <div id="newline"><span class="k">ACME_API_KEY</span>=<span class="v">••••••••••••4242</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast">
+        <div class="ticon">🔑<div class="okb">✓</div></div>
+        <div style="flex:1">
+          <div class="tapp">keepkeys · now</div>
+          <div class="tt">
+            <div id="msg1"><div class="h">Copy ACME_API_KEY</div><div class="s">From <code>dashboard.acme.dev</code>, just click Copy.</div></div>
+            <div id="msg2" style="opacity:0"><div class="h">Got it ✓ ACME_API_KEY …4242</div><div class="s">Saved to <code>.env.local</code> · clipboard cleared</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="ripple"></div>
+      <svg id="cursor" viewBox="0 0 24 24"><path d="M4 2.5v17.2l4.6-4.3 2.9 6.6 2.9-1.3-2.9-6.5h6.3z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const $ = (s) => document.querySelector(s);
+
+      gsap.set(["#a1", "#a2", "#t1", "#t2", "#a3", "#t2ok", "#newline"], { opacity: 0 });
+      gsap.set("#toast", { x: 720 });
+      gsap.set("#cursor", { x: 1500, y: 1000, opacity: 0 });
+
+      // windows are already on screen at 0 s (the first frame is the thumbnail)
+      // all timings are the spike's x 0.8 (1.25x faster)
+
+      // deterministic typing: one span per character
+      const text = "add payments to the API";
+      const typed = $("#typed");
+      let t = 0.4;
+      [...text].forEach((ch, i) => {
+        const s = document.createElement("span");
+        s.textContent = ch;
+        s.style.display = "none"; // hidden chars take no space, so the caret follows the typing
+        typed.appendChild(s);
+        t += 0.028 + ((i * 37) % 11) / 125 + (ch === " " ? 0.04 : 0);
+        tl.set(s, { display: "inline" }, t);
+      });
+      tl.set("#caret1", { opacity: 0 }, t + 0.2);
+
+      // agent reply
+      const r = t + 0.36;
+      tl.fromTo("#a1", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, r);
+      tl.fromTo("#a2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, r + 0.28);
+      tl.fromTo(["#t1", "#t2"], { opacity: 0 }, { opacity: 1, duration: 0.2, stagger: 0.096 }, r + 0.64);
+
+      // notification
+      const n = r + 0.8;
+      tl.to("#toast", { x: 0, duration: 0.56, ease: "back.out(1.2)" }, n);
+
+      // light camera push toward the dashboard; the agent window's right part stays on screen
+      // Copy button centre from fixed layout constants (see the #copy CSS), not measured, so font loading can't shift the aim
+      const COPY_X = 1721, COPY_Y = 422;
+      const bx = COPY_X, by = COPY_Y;
+      const S = 1.15, tx = 1450 - S * bx, ty = 480 - S * by;
+      const sx = S * bx + tx, sy = S * by + ty;
+      const c = n + 0.64;
+      tl.to("#cam", { scale: S, x: tx, y: ty, duration: 1.04, ease: "power3.inOut" }, c);
+      tl.to("#cursor", { opacity: 1, duration: 0.16 }, c + 0.16);
+      tl.to("#cursor", { x: sx - 4, duration: 0.92, ease: "power2.inOut" }, c + 0.2);
+      tl.to("#cursor", { y: sy - 4, duration: 0.92, ease: "power3.inOut" }, c + 0.2);
+
+      // click
+      const k = c + 1.2;
+      tl.to("#cursor", { scale: 0.86, duration: 0.064, yoyo: true, repeat: 1 }, k);
+      tl.to("#copy", { scale: 0.94, duration: 0.064, yoyo: true, repeat: 1 }, k);
+      tl.set("#ripple", { x: sx, y: sy }, k);
+      tl.fromTo("#ripple", { scale: 0.2, opacity: 0.9 }, { scale: 1.4, opacity: 0, duration: 0.4, ease: "power2.out" }, k);
+      tl.to("#copy .c2", { opacity: 1, duration: 0.12 }, k + 0.08);
+
+      // keepkeys reacts
+      const g = k + 0.36;
+      tl.to("#msg1", { opacity: 0, y: -8, duration: 0.2 }, g);
+      tl.fromTo("#msg2", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.24, ease: "power2.out" }, g + 0.08);
+      tl.to(".ticon .okb", { opacity: 1, duration: 0.2 }, g);
+      tl.to("#toast", { scale: 1.03, duration: 0.096, yoyo: true, repeat: 1, ease: "power1.out" }, g);
+
+      // pull back to the agent and the file
+      const b = g + 0.48;
+      tl.to("#cursor", { opacity: 0, duration: 0.24 }, b);
+      tl.to("#cam", { scale: 1, x: 0, y: 0, duration: 0.88, ease: "power3.inOut" }, b);
+      tl.to("#wait", { opacity: 0, duration: 0.12 }, b + 0.24);
+      tl.set("#wait", { display: "none" }, b + 0.36); // "✓ saved" takes its place instead of sitting after it
+      tl.to("#t2ok", { opacity: 1, duration: 0.2 }, b + 0.36);
+      tl.fromTo("#newline", { opacity: 0, x: -12, backgroundColor: "rgba(61,220,151,0.28)" },
+        { opacity: 1, x: 0, duration: 0.32, ease: "power2.out" }, b + 0.48);
+      tl.to("#newline", { backgroundColor: "rgba(61,220,151,0.10)", duration: 0.96 }, b + 0.8);
+      tl.fromTo("#a3", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, b + 0.44);
+      tl.to("#toast", { x: 720, duration: 0.48, ease: "power2.in" }, b + 1.3);
+
+      // the end is derived from the last beat: hold the final frame HOLD seconds after the toast has left
+      const HOLD = 1.6;
+      const END = Math.round((b + 1.3 + 0.48 + HOLD) * 100) / 100;
+      const root = document.getElementById("root");
+      if (Math.abs(END - Number(root.dataset.duration)) > 0.01) {
+        console.error("agent-flow: data-duration is " + root.dataset.duration + " but the timeline ends at " + END + "; update the root attribute");
+        root.dataset.duration = String(END);
+      }
+      tl.set({}, {}, END);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

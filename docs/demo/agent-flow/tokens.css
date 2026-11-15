@@ -1,0 +1,41 @@
+/* keepkeys design tokens: shared by the demo composition and the README images. */
+:root {
+  /* desk (background) */
+  --desk-a: #0b1020;
+  --desk-b: #1a1440;
+
+  /* dark windows (agent, editor) */
+  --win: #0f1117;
+  --win-2: #161923;
+  --win-line: #262a36;
+
+  /* light page (browser) */
+  --page: #fbfbfd;
+  --page-line: #e7e8ee;
+
+  /* text */
+  --ink: #e8eaf0;
+  --ink-dim: #8a90a2;
+  --ink-dark: #14161c;
+  --ink-dark-dim: #6b7080;
+
+  /* brand */
+  --accent: #7c5cff;
+  --accent-text: #8466ff; /* accent for small text on dark windows (passes AA on --win) */
+  --ok: #3ddc97;
+
+  /* shape */
+  --radius-win: 14px;
+  --radius-ctl: 8px;
+  --shadow-win: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  /* type */
+  --font-ui: "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", Consolas, monospace;
+
+  /* motion (the composition uses the matching GSAP eases, e.g. power3.inOut / power2.out) */
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
+  --dur-fast: 0.2s;
+  --dur-base: 0.35s;
+  --dur-slow: 0.9s;
+}

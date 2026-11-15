@@ -99,7 +99,7 @@ export function collectViaClipboard(
     const take = async (raw, { strong, preconfirmed }) => {
       busy = true;
       try {
-        const r = await review(name, raw, { check });
+        const r = await review(name, raw, { check, expect: request.expect });
         if (settled) return;
         if (r.check?.ok === false) {
           log(`${r.check.detail}; copy the right key and keepkeys will try again`);
@@ -189,7 +189,7 @@ export async function collectViaPage(requests, { check = false, timeoutMs, annou
 
   const onSubmit = async (name, raw, force) => {
     const req = byName.get(name);
-    const r = await review(name, raw, { check });
+    const r = await review(name, raw, { check, expect: req.expect });
     if (!r.value) return { ok: false, warnings: ['the value is empty'] };
     if (r.warnings.length && !force) return { ok: false, warnings: r.warnings };
     const result = commit(name, r.value, req.destinations);
