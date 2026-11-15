@@ -172,6 +172,31 @@ test('an agent-supplied format never skips the confirm page', async () => {
   }
 });
 
+test('a known key that misses the agent-supplied prefix still goes to the confirm page', async () => {
+  const p = project('');
+  const r = start(['mcp', '--root', p.dir], { cwd: p.dir, env: p.env });
+  const lines = () => r.out.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const send = (m) => r.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
+  try {
+    send({ id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } });
+    await waitFor(() => lines().find((m) => m.id === 1));
+    // STRIPE is sk_test_…, a built-in strong match for this name, but the agent asked for a live key.
+    send({ id: 2, method: 'tools/call', params: { name: 'request_secret', arguments: { name: 'STRIPE_SECRET_KEY', destinations: ['.env'], expected_prefixes: ['sk_live_'] } } });
+    await waitFor(() => r.out.stderr.includes('copy STRIPE_SECRET_KEY now'));
+    fs.writeFileSync(p.clip, STRIPE);
+    const url = await waitForPageUrl(r.out);
+    const page = await fetch(url).then((res) => res.text());
+    assert.match(page, /the agent said to expect sk_live_…/);
+    assert.equal(read(p.dir, '.env'), null, 'saved before confirming');
+    await post(url, 'confirm', { name: 'STRIPE_SECRET_KEY', accept: false });
+    await waitFor(() => r.out.stderr.includes('did not confirm'));
+    assert.equal(read(p.dir, '.env'), null);
+    assert.ok(!r.out.stdout.includes(STRIPE));
+  } finally {
+    r.child.stdin.end();
+  }
+});
+
 // Uses the real system clipboard, so it only runs when asked; it restores the
 // previous clipboard text afterwards.
 test('real Windows clipboard', { skip: !(process.platform === 'win32' && process.env.KEEPKEYS_TEST_REAL_CLIPBOARD) && 'set KEEPKEYS_TEST_REAL_CLIPBOARD=1 on Windows' }, async () => {
