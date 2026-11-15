@@ -16,7 +16,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "demo:render": "node docs/demo/render.mjs"
   },
   "keywords": [
     "secrets",
