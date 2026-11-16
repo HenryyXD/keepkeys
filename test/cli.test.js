@@ -122,7 +122,7 @@ test('skipping on the page exits cleanly without writing', async () => {
 test('fill without a terminal asks for every missing key on one page', async () => {
   const dir = tmpProject();
   write(dir, '.env.example', 'A_KEY=\nB_KEY=\nC_KEY=\n');
-  write(dir, '.env.local', 'B_KEY=already-set-123\n');
+  write(dir, '.env.local', 'B_KEY=already-set-123\n'); // an existing .env.local is used
   const p = start([], { cwd: dir });
   p.child.stdin.end();
   const url = await waitForPageUrl(p.out);
@@ -144,4 +144,42 @@ test('.envrc gets export lines so direnv passes the key on', () => {
   const r = run(['add', 'API_TOKEN', '--to', '.envrc', '--stdin'], { cwd: dir, input: 'tok_0123456789abcdef' });
   assert.equal(r.code, 0, r.stderr);
   assert.equal(read(dir, '.envrc'), 'export API_TOKEN=tok_0123456789abcdef\n');
+});
+
+// ---------------------------------------------------------------- headless (server, SSH)
+
+test('headless, no terminal: add prints one command for the person and does not wait', () => {
+  const dir = tmpProject();
+  const r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  assert.equal(r.stdout.trim(), `keepkeys --root ${dir} add TELEGRAM_BOT_TOKEN --to .env`);
+  assert.match(r.stderr, /their own terminal/);
+  assert.doesNotMatch(r.stderr, /opened a page/);
+  assert.equal(read(dir, '.env'), null);
+});
+
+test('headless, no terminal: fill prints one command that asks for every missing key', () => {
+  const dir = tmpProject();
+  write(dir, '.env.example', 'TELEGRAM_BOT_TOKEN=\nTELEGRAM_CHAT_ID=\nIMAP_USER=\nIMAP_PASSWORD=\nCLAUDE_CODE_OAUTH_TOKEN=\nPORT=8080\n');
+  const r = run([], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  assert.equal(r.stdout.trim().split('\n').at(-1), `keepkeys --root ${dir}`, 'the command is the last line');
+  assert.match(r.stdout, /\[MISSING\] IMAP_PASSWORD +\.env\n/, 'a .env.example defaults to .env');
+  assert.match(r.stderr, /5 keys \(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, IMAP_USER, IMAP_PASSWORD, CLAUDE_CODE_OAUTH_TOKEN\)/);
+});
+
+test('--clipboard: on a server it hands over a command; on a desktop without clipboard tools it fails at once', { skip: process.platform !== 'linux' }, () => {
+  const dir = tmpProject();
+  let r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env', '--clipboard'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env', '--clipboard'], { cwd: dir, env: { PATH: '' } });
+  assert.equal(r.code, 1);
+  assert.match(r.stderr, /could not read the clipboard/);
+});
+
+test('the handoff command carries --check and --allow-any-file over to the person', () => {
+  const dir = tmpProject();
+  const r = run(['add', 'X_TOKEN', '--to', 'config/secrets.json', '--allow-any-file', '--check'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  assert.equal(r.stdout.trim(), `keepkeys --root ${dir} add X_TOKEN --to config/secrets.json --check --allow-any-file`);
 });

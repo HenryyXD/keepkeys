@@ -27,7 +27,8 @@ export function read(dir, rel) {
   }
 }
 
-const baseEnv = () => ({ ...process.env, KEEPKEYS_NO_BROWSER: '1', KEEPKEYS_NO_NOTIFY: '1', KEEPKEYS_DIAG_LOG: os.devNull, NO_COLOR: '1', KEEPKEYS_CLAUDE_BIN: 'none' });
+// Tests act like a desktop unless they set KEEPKEYS_HEADLESS=1.
+const baseEnv = () => ({ ...process.env, KEEPKEYS_HEADLESS: '0', KEEPKEYS_NO_BROWSER: '1', KEEPKEYS_NO_NOTIFY: '1', KEEPKEYS_DIAG_LOG: os.devNull, NO_COLOR: '1', KEEPKEYS_CLAUDE_BIN: 'none' });
 
 /** Runs the CLI to completion. */
 export function run(args, { cwd, input, env } = {}) {

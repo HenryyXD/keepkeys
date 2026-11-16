@@ -42,7 +42,7 @@ function project(initialClipboard) {
   const dir = tmpProject();
   const clip = path.join(dir, '..', `${path.basename(dir)}.clipboard`);
   fs.writeFileSync(clip, initialClipboard);
-  return { dir, clip, env: { KEEPKEYS_FAKE_CLIPBOARD: clip } };
+  return { dir, clip, env: { KEEPKEYS_FAKE_CLIPBOARD: clip, KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL: '1' } };
 }
 
 function addWithoutTerminal(args, p) {
@@ -138,10 +138,10 @@ test('MCP request_secret uses the clipboard by default and tells the agent what 
     fs.writeFileSync(p.clip, STRIPE);
     const res = await waitFor(() => lines().find((m) => m.id === 2), { timeoutMs: 15000 });
     const text = res.result.content[0].text;
-    assert.match(text, /ok: saved STRIPE_SECRET_KEY \(ends in …C0PY\) to \.env\.local/);
+    assert.match(text, /ok: saved STRIPE_SECRET_KEY \(ends in …C0PY\) to \.env;/);
     assert.match(text, /Next: .*confirm in chat that STRIPE_SECRET_KEY ending in …C0PY was received/);
     assert.ok(!r.out.stdout.includes(STRIPE));
-    assert.equal(read(p.dir, '.env.local'), `STRIPE_SECRET_KEY=${STRIPE}\n`);
+    assert.equal(read(p.dir, '.env'), `STRIPE_SECRET_KEY=${STRIPE}\n`);
   } finally {
     r.child.stdin.end();
   }
@@ -225,4 +225,38 @@ test('notification commands quote their text', async () => {
   const [cmd, winArgs] = notifyCommand("it's", 'x', 'win32');
   assert.equal(cmd, 'powershell.exe');
   assert.match(Buffer.from(winArgs.at(-1), 'base64').toString('utf16le'), /'it''s'/);
+});
+
+test('clearing through xclip does not wait for the process that keeps owning the clipboard', { skip: process.platform !== 'linux' }, () => {
+  const dir = tmpProject({ git: false });
+  const clip = path.join(dir, 'clip.txt');
+  fs.writeFileSync(clip, STRIPE);
+  // A stand-in for xclip: -o prints the clipboard; -i stores stdin and leaves a
+  // child running that holds stdout open, as the real xclip does.
+  fs.writeFileSync(
+    path.join(dir, 'xclip'),
+    `#!/bin/sh\ncase "$*" in *-o*) /bin/cat ${clip} ;; *) /bin/cat > ${clip}; (/bin/sleep 20) & ;; esac\n`,
+    { mode: 0o755 },
+  );
+  const script = `import('${new URL('../src/clipboard.js', import.meta.url).href}').then((m) => console.log(m.clearClipboardIf(${JSON.stringify(STRIPE)})))`;
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, ['-e', script], { env: { PATH: dir }, encoding: 'utf8', timeout: 15000 });
+  assert.equal(r.stdout.trim(), 'true', r.stderr);
+  assert.ok(Date.now() - t0 < 5000, `took ${Date.now() - t0} ms`);
+  assert.equal(fs.readFileSync(clip, 'utf8'), '');
+});
+
+test('without a browser to open, the confirm page address is never printed and nothing is saved', async () => {
+  const p = project('');
+  // Over SSH with a readable clipboard (ssh -X), or a desktop without xdg-open.
+  const env = { ...p.env, KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL: '' };
+  const r = start(['add', 'MY_SERVICE_TOKEN', '--to', '.env', '--clipboard', '--timeout', '20'], { cwd: p.dir, env });
+  r.child.stdin.end();
+  await waitFor(() => r.out.stderr.includes('copy MY_SERVICE_TOKEN now'));
+  fs.writeFileSync(p.clip, 'svc_7f3k9d2m5x8q1w4e');
+  const code = await r.exited;
+  assert.notEqual(code, 0);
+  assert.doesNotMatch(r.out.stderr + r.out.stdout, /http:\/\/(127\.0\.0\.1|localhost)/, 'the agent could approve the value itself');
+  assert.match(r.out.stdout + r.out.stderr, /needs your confirmation, but no browser can be opened/);
+  assert.equal(read(p.dir, '.env'), null);
 });

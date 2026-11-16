@@ -133,6 +133,10 @@ export function clipboardMatch(name, raw) {
   return { ok, strong, value, provider, expected };
 }
 
+// Names whose values are not keys: chat or account IDs, user names, e-mails.
+const NOT_A_KEY_NAME = /(^|_)(ID|USER|USERNAME|LOGIN|EMAIL|ACCOUNT|HOST|PORT|URL|ENDPOINT|REGION|DOMAIN)$/i;
+const PASSWORD_NAME = /(^|_)(PASSWORD|PASSWD|PASS|PASSPHRASE|PWD)$/i;
+
 /**
  * Cleans up common paste accidents and checks the value against the name.
  * Returns { value, provider, fixes, warnings }. `fixes` describe changes that
@@ -162,8 +166,16 @@ export function inspect(name, raw, { expect } = {}) {
   if (!value) {
     return { value, provider: null, fixes, warnings: ['the value is empty'] };
   }
-  if (/\s/.test(value)) warnings.push('the value contains spaces or line breaks; keys normally have none');
-  if (value.length < 12) warnings.push(`the value is very short (${value.length} characters)`);
+  // The length and space checks are for API keys and tokens. IDs, user names
+  // and e-mails are short by nature, and passwords may contain spaces (Gmail
+  // app passwords are four groups of four letters).
+  const plainValue = NOT_A_KEY_NAME.test(name);
+  const password = PASSWORD_NAME.test(name);
+  if (/[\r\n]/.test(value) || (/\s/.test(value) && !password && !plainValue)) {
+    warnings.push('the value contains spaces or line breaks; keys normally have none');
+  }
+  const minLength = plainValue ? 1 : password ? 6 : 12;
+  if (value.length < minLength) warnings.push(`the value is very short (${value.length} characters)`);
 
   const provider = identify(value);
   const expected = providersForName(name);

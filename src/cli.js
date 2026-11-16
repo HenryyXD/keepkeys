@@ -1,5 +1,4 @@
 import path from 'node:path';
-import fs from 'node:fs';
 import { parseArgs } from 'node:util';
 import { KeepKeysError, EXIT } from './errors.js';
 import { loadManifest, defaultDestination } from './manifest.js';
@@ -7,12 +6,14 @@ import { resolveDestinations } from './destinations/index.js';
 import { review, commit, summary } from './core.js';
 import { readHidden, readStdin, confirm } from './prompt.js';
 import { readClipboard, clipboardAvailable } from './clipboard.js';
+import { isHeadless, isRemoteSession, handoffCommand } from './env.js';
+import { mayShowConfirmUrl } from './open-browser.js';
 import { collectViaPage, collectViaClipboard, confirmViaPage } from './handoff.js';
 import { suggestWhere, clipboardMatch, lastFour } from './detect.js';
 import { validateName } from './paths.js';
 import { color, out, err, warn } from './ui.js';
 
-const VERSION = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+import { VERSION } from './version.js';
 
 const HELP = `keepkeys ${VERSION}: Keys Excluded from Every Prompt
 Put API keys into your project's env files without pasting them into an AI chat.
@@ -28,8 +29,8 @@ Options for add
   --to a,b          destinations: env files and/or env:user (default: from the manifest, else .env.local)
   --where URL       where to get the key, shown while asking
   --description T   what the key is for, shown while asking
-  --clipboard       take the key from the clipboard: just copy it (default when there is no terminal)
-  --browser         ask in a local browser page instead
+  --clipboard       take the key from the clipboard: just copy it (default for an agent on a desktop)
+  --browser         ask in a local browser page instead (over SSH: through an ssh -L tunnel)
   --stdin           read the key from standard input
   --timeout SEC     how long to wait for the key (clipboard: 300, browser: 600)
   --check           make one read-only call to the provider to confirm the key works
@@ -41,7 +42,13 @@ General
   -h, --help        show this help
   -v, --version     show the version
 
+Where keepkeys asks
+  In a terminal it asks with a hidden prompt (also over SSH). Without one (an
+  agent's shell) it watches the clipboard on a desktop; on a server or over
+  SSH it prints the one command the person should run in their terminal.
+
 Examples
+  npx keepkeys                   in your terminal: ask for every key .env.example lists
   npx keepkeys add STRIPE_SECRET_KEY --to .env.local,server/.dev.vars
   npx keepkeys add OPENROUTER_API_KEY --to env:user
   npx keepkeys setup`;
@@ -192,24 +199,58 @@ async function obtain(values) {
 }
 
 // How to get the value: an explicit flag wins; a terminal gets the hidden
-// prompt; without one (an agent's shell) keepkeys watches the clipboard, or
-// opens the browser page when the clipboard can't be read.
+// prompt; without one (an agent's shell) keepkeys watches the clipboard on a
+// desktop, or opens the browser page when the clipboard can't be read. On a
+// server or over SSH nobody can copy or open a page here, so keepkeys prints
+// the command for the person to run in their own terminal ('handoff').
 function chooseMode(values) {
   if (values.stdin) return 'stdin';
   if (values.browser) return 'browser';
-  if (values.clipboard) return 'clipboard';
+  // An agent's shell on a server or over SSH: nobody here can answer a
+  // clipboard request (or confirm it), even when a clipboard is readable.
+  if (!process.stdin.isTTY && isHeadless()) return 'handoff';
+  if (values.clipboard) {
+    if (!clipboardAvailable()) {
+      throw new KeepKeysError(
+        isHeadless()
+          ? 'there is no clipboard to read on this machine (no display, or an SSH session). Run keepkeys in a terminal instead: it asks with a hidden prompt.'
+          : 'could not read the clipboard: install wl-clipboard (Wayland), xclip or xsel, or leave out --clipboard to paste into a hidden prompt',
+      );
+    }
+    return 'clipboard';
+  }
   if (process.stdin.isTTY) return 'prompt';
+  if (isHeadless()) return 'handoff';
   return clipboardAvailable() ? 'clipboard' : 'browser';
+}
+
+/**
+ * Prints the one command the person should run in their own terminal, for an
+ * agent (no terminal) on a server or over SSH. The command never contains a
+ * secret. stdout gets the bare command so an agent can pass it on verbatim.
+ */
+// Flags the person's own run needs too.
+const passOn = (values) => [...(values.check ? ['--check'] : []), ...(values['allow-any-file'] ? ['--allow-any-file'] : [])];
+
+function handoff(root, args, names) {
+  const cmd = handoffCommand(root, args);
+  const what = names.length === 1 ? names[0] : `${names.length} keys (${names.join(', ')})`;
+  err(`keepkeys: nobody can copy or open a page on this machine from here (${isRemoteSession() ? 'an SSH session' : 'no display'}).`);
+  err(`keepkeys: to hand over ${what}, the person runs this in their own terminal on this machine (over SSH is fine).`);
+  err('keepkeys: it asks with a hidden prompt; the value never appears on screen, in the shell history or here:');
+  out(cmd);
+  err(`keepkeys: afterwards, check with: ${handoffCommand(root, ['list'])}`);
+  return EXIT.HANDOFF;
 }
 
 const logLine = (m) => err(`keepkeys: ${m}`);
 
 // The confirm page's address is kept from stdout/stderr, which an agent
-// reads, so the agent cannot approve a value itself. It is printed only when
-// no browser could be opened (headless machines, tests).
+// reads, so the agent cannot approve a value itself (only the test suite can
+// opt in to seeing it).
 function announceConfirm(url, opened) {
   if (opened) err('keepkeys: please confirm the copied value in the browser page that just opened');
-  else err(`keepkeys: open ${url} to confirm the copied value`);
+  else if (mayShowConfirmUrl()) err(`keepkeys: open ${url} to confirm the copied value`);
 }
 
 async function confirmInTerminal({ destinations, ending, chars, warnings }) {
@@ -271,6 +312,11 @@ async function add(root, name, values) {
   const { dests, where, description } = resolveFor(root, name, values);
   const request = { name, description, where, destinations: dests };
   const mode = chooseMode(values);
+  if (mode === 'handoff') {
+    const args = ['add', name];
+    if (values.to) args.push('--to', values.to);
+    return handoff(root, [...args, ...passOn(values)], [name]);
+  }
 
   if (mode === 'browser') {
     const results = await collectViaPage([request], { check: values.check, timeoutMs: timeoutMs(values), announce: announcePage });
@@ -284,7 +330,13 @@ async function add(root, name, values) {
 }
 
 function announcePage(url, opened) {
-  err(opened ? `keepkeys: opened a page in your browser to paste the key: ${url}` : `keepkeys: open this page to paste the key: ${url}`);
+  if (opened) err(`keepkeys: opened a page in your browser to paste the key: ${url}`);
+  else if (isHeadless()) {
+    const { port, pathname } = new URL(url);
+    err('keepkeys: the page runs on this machine. From your own computer, open a tunnel first:');
+    err(`keepkeys:   ssh -N -L ${port}:127.0.0.1:${port} <this server>`);
+    err(`keepkeys: then open http://localhost:${port}${pathname}`);
+  } else err(`keepkeys: open this page to paste the key: ${url}`);
   err('keepkeys: waiting for you to paste…');
 }
 
@@ -325,8 +377,12 @@ async function fill(root, values) {
   }
 
   // Several keys at once without a terminal: one page for all of them, unless
-  // --clipboard asks to copy them one by one.
-  const mode = values.clipboard ? 'clipboard' : values.browser || !process.stdin.isTTY ? 'browser' : 'prompt';
+  // --clipboard asks to copy them one by one. On a server or over SSH: the
+  // command for the person's own terminal.
+  const tty = Boolean(process.stdin.isTTY);
+  const mode = values.browser ? 'browser' : !tty && isHeadless() ? 'handoff' : values.clipboard ? 'clipboard' : tty ? 'prompt' : 'browser';
+  if (mode === 'handoff') return handoff(root, passOn(values), todo.map((s) => s.name));
+  if (mode === 'clipboard' && !clipboardAvailable()) chooseMode({ clipboard: true });
   if (mode === 'browser') {
     const results = await collectViaPage(
       todo.map((s) => ({ name: s.name, description: s.description, where: s.where, destinations: s.resolved })),
@@ -354,7 +410,7 @@ async function fill(root, values) {
     try {
       await store(s.name, raw, s.resolved, values, true);
     } catch (e) {
-      if (e.exitCode !== EXIT.CANCELLED) throw e;
+      if (e.exitCode !== EXIT.CANCELLED || e.interrupted) throw e;
       err(color.dim(`  · ${e.message}`));
     }
   }
