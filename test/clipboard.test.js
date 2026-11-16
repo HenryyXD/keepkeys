@@ -42,7 +42,7 @@ function project(initialClipboard) {
   const dir = tmpProject();
   const clip = path.join(dir, '..', `${path.basename(dir)}.clipboard`);
   fs.writeFileSync(clip, initialClipboard);
-  return { dir, clip, env: { KEEPKEYS_FAKE_CLIPBOARD: clip } };
+  return { dir, clip, env: { KEEPKEYS_FAKE_CLIPBOARD: clip, KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL: '1' } };
 }
 
 function addWithoutTerminal(args, p) {
@@ -244,4 +244,19 @@ test('clearing through xclip does not wait for the process that keeps owning the
   assert.equal(r.stdout.trim(), 'true', r.stderr);
   assert.ok(Date.now() - t0 < 5000, `took ${Date.now() - t0} ms`);
   assert.equal(fs.readFileSync(clip, 'utf8'), '');
+});
+
+test('without a browser to open, the confirm page address is never printed and nothing is saved', async () => {
+  const p = project('');
+  // Over SSH with a readable clipboard (ssh -X), or a desktop without xdg-open.
+  const env = { ...p.env, KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL: '' };
+  const r = start(['add', 'MY_SERVICE_TOKEN', '--to', '.env', '--clipboard', '--timeout', '20'], { cwd: p.dir, env });
+  r.child.stdin.end();
+  await waitFor(() => r.out.stderr.includes('copy MY_SERVICE_TOKEN now'));
+  fs.writeFileSync(p.clip, 'svc_7f3k9d2m5x8q1w4e');
+  const code = await r.exited;
+  assert.notEqual(code, 0);
+  assert.doesNotMatch(r.out.stderr + r.out.stdout, /http:\/\/(127\.0\.0\.1|localhost)/, 'the agent could approve the value itself');
+  assert.match(r.out.stdout + r.out.stderr, /needs your confirmation, but no browser can be opened/);
+  assert.equal(read(p.dir, '.env'), null);
 });

@@ -103,7 +103,7 @@ export function readHidden(question, { input = process.stdin, output = process.s
           continue;
         }
         if (ch === '\r' || ch === '\n') return finish();
-        if (ch === '\x03') return finish(new KeepKeysError('cancelled', EXIT.CANCELLED));
+        if (ch === '\x03') return finish(interrupted());
         if (ch === '\x04' && !value) return finish(new KeepKeysError('cancelled', EXIT.CANCELLED));
         if (ch === '\x7f' || ch === '\b') {
           value = [...value].slice(0, -1).join('');
@@ -143,37 +143,102 @@ export function readHidden(question, { input = process.stdin, output = process.s
 }
 
 /**
- * Asks a yes/no question with a single key press, without echo. A paste (a
- * burst of characters, or bracketed paste) is never shown: someone pasting
- * the next key too early would otherwise see it printed on screen. It is
- * thrown away and the question is asked again.
+ * Asks a yes/no question in the terminal, answered with y or n and Enter.
+ * Nothing that looks pasted is shown or counted: a bracketed paste, or
+ * characters arriving faster than anyone types (consoles without bracketed
+ * paste), is thrown away whole and the question is asked again. Without this,
+ * someone pasting the next key too early would see it on screen, or a "y"
+ * inside the key would answer the question.
+ * Ctrl+C rejects with an interrupt that stops the whole run.
  */
 export function confirm(question, { input = process.stdin, output = process.stderr } = {}) {
   if (!input.isTTY) return confirmLine(question, { input, output });
   return new Promise((resolve, reject) => {
-    const finish = (answer, shown, err) => {
+    let typed = '';
+    let inPaste = false;
+    let pasted = false; // something in the current answer arrived as a paste
+    let lastAt = 0;
+    let quietTimer = null;
+    const shown = () => (/^(y|ye|yes|n|no)$/i.test(typed) ? typed : '');
+    const render = () => output.write(`\r\x1b[K${question} [y/N] ${shown()}`);
+    const discard = () => {
+      clearTimeout(quietTimer);
+      typed = '';
+      pasted = false;
+      output.write(`\r\x1b[K  (ignored a paste: nothing was shown or saved)\n`);
+      render();
+    };
+    const finish = (answer, err) => {
+      clearTimeout(quietTimer);
       input.removeListener('data', onData);
       input.setRawMode(false);
       input.pause();
-      output.write(`${shown}\x1b[?2004l\n`);
+      output.write('\x1b[?2004l\n');
       if (err) reject(err);
       else resolve(answer);
     };
     const onData = (chunk) => {
       const s = String(chunk);
-      if (s === '\x03') return finish(false, '', new KeepKeysError('cancelled', EXIT.CANCELLED));
-      if (s === 'y' || s === 'Y') return finish(true, 'y');
-      if (s === 'n' || s === 'N' || s === '\r' || s === '\n' || s === '\x1b' || s === '\x04') return finish(false, 'n');
-      if (s.length > 1 && !/^\x1b\[[0-9;]*[A-Za-z~]$/.test(s)) {
-        output.write(`\r\x1b[K  (ignored a paste: nothing was shown or saved)\n${question} [y/N] `);
+      let i = 0;
+      while (i < s.length) {
+        if (s.startsWith(PASTE_START, i)) {
+          inPaste = true;
+          pasted = true;
+          i += PASTE_START.length;
+          continue;
+        }
+        if (s.startsWith(PASTE_END, i)) {
+          inPaste = false;
+          i += PASTE_END.length;
+          discard(); // drop it at once, so what is typed next counts
+          continue;
+        }
+        const ch = s[i];
+        if (ch === '\x1b') {
+          const m = /^\x1b\[[0-9;?]*[ -/]*[@-~]/.exec(s.slice(i));
+          i += m ? m[0].length : 1;
+          continue;
+        }
+        i++;
+        if (inPaste) continue;
+        const now = Date.now();
+        const fast = now - lastAt < FAST_MS;
+        lastAt = now;
+        if (ch === '\x03') return finish(false, interrupted());
+        if (ch === '\r' || ch === '\n') {
+          if (pasted || fast) {
+            discard();
+            continue;
+          }
+          return finish(/^y(es)?$/i.test(typed));
+        }
+        if (ch === '\x7f' || ch === '\b') {
+          typed = typed.slice(0, -1);
+          continue;
+        }
+        if (ch < ' ') continue;
+        if (fast && typed) pasted = true;
+        typed += ch;
       }
+      // A fast burst without paste markers: drop it once it goes quiet.
+      clearTimeout(quietTimer);
+      if (pasted && !inPaste) quietTimer = setTimeout(discard, PASTE_QUIET_MS);
+      if (!pasted) render();
     };
-    output.write(`\x1b[?2004h${question} [y/N] `);
+    output.write('\x1b[?2004h');
+    render();
     input.setRawMode(true);
     input.setEncoding('utf8');
     input.on('data', onData);
     input.resume();
   });
+}
+
+/** Ctrl+C: stop everything, not just the current question. */
+export function interrupted() {
+  const e = new KeepKeysError('cancelled', EXIT.CANCELLED);
+  e.interrupted = true;
+  return e;
 }
 
 async function confirmLine(question, { input, output }) {

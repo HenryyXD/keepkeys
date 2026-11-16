@@ -13,6 +13,7 @@ import { clipboardAvailable } from '../clipboard.js';
 import { suggestWhere, normalizeExpectation } from '../detect.js';
 import { validateName } from '../paths.js';
 import { isHeadless, isRemoteSession, handoffCommand } from '../env.js';
+import { mayShowConfirmUrl } from '../open-browser.js';
 
 import { VERSION } from '../version.js';
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -271,7 +272,7 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
       const confirm = (details) =>
         confirmViaPage(details, {
           signal,
-          announce: (url, opened) => log(opened ? 'asked the user to confirm the copied value in the browser' : `open ${url} to confirm the copied value`),
+          announce: (url, opened) => (opened ? log('asked the user to confirm the copied value in the browser') : mayShowConfirmUrl() && log(`open ${url} to confirm the copied value`)),
         });
       const results =
         method === 'clipboard'

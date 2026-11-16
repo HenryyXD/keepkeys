@@ -168,9 +168,18 @@ test('headless, no terminal: fill prints one command that asks for every missing
   assert.match(r.stderr, /5 keys \(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, IMAP_USER, IMAP_PASSWORD, CLAUDE_CODE_OAUTH_TOKEN\)/);
 });
 
-test('--clipboard fails at once when there is no clipboard, instead of waiting in silence', { skip: process.platform !== 'linux' }, () => {
+test('--clipboard: on a server it hands over a command; on a desktop without clipboard tools it fails at once', { skip: process.platform !== 'linux' }, () => {
   const dir = tmpProject();
-  const r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env', '--clipboard'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', PATH: '' } });
+  let r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env', '--clipboard'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  r = run(['add', 'TELEGRAM_BOT_TOKEN', '--to', '.env', '--clipboard'], { cwd: dir, env: { PATH: '' } });
   assert.equal(r.code, 1);
-  assert.match(r.stderr, /no clipboard to read on this machine/);
+  assert.match(r.stderr, /could not read the clipboard/);
+});
+
+test('the handoff command carries --check and --allow-any-file over to the person', () => {
+  const dir = tmpProject();
+  const r = run(['add', 'X_TOKEN', '--to', 'config/secrets.json', '--allow-any-file', '--check'], { cwd: dir, env: { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys' } });
+  assert.equal(r.code, 4, r.stderr);
+  assert.equal(r.stdout.trim(), `keepkeys --root ${dir} add X_TOKEN --to config/secrets.json --check --allow-any-file`);
 });

@@ -24,7 +24,7 @@ export function readText(file) {
  */
 export function atomicWrite(file, content) {
   const dir = path.dirname(file);
-  fs.mkdirSync(dir, { recursive: true });
+  mkdirOwned(dir);
   let st = null;
   try {
     st = fs.statSync(file);
@@ -34,23 +34,31 @@ export function atomicWrite(file, content) {
   let owner = null; // [uid, gid] the result must have, when it differs from ours
   if (uid !== null) {
     if (st && (st.uid !== uid || st.gid !== process.getgid())) owner = [st.uid, st.gid];
-    else if (!st && uid === 0) {
-      const d = fs.statSync(dir);
-      if (d.uid !== 0) owner = [d.uid, d.gid];
-    }
+    else if (!st) owner = inheritedOwner(dir);
   }
 
   const tmp = path.join(dir, `.${path.basename(file)}.${crypto.randomBytes(6).toString('hex')}.tmp`);
   try {
     fs.writeFileSync(tmp, content, { mode });
     fs.chmodSync(tmp, mode); // writeFileSync's mode is reduced by the umask
-    if (owner) fs.chownSync(tmp, owner[0], owner[1]);
   } catch (err) {
     fs.rmSync(tmp, { force: true });
-    // Can't create a file here, or can't give it the original owner: write
-    // the existing file in place instead.
+    // No new file can be created here: write the existing file in place.
     if (st && (err.code === 'EPERM' || err.code === 'EACCES')) return fs.writeFileSync(file, content);
     throw err;
+  }
+  if (owner) {
+    try {
+      fs.chownSync(tmp, owner[0], owner[1]);
+    } catch {
+      // Can't give the file its owner (not root; or an id unmapped in a user
+      // namespace, EINVAL). An existing file is written in place instead,
+      // which keeps owner and mode; a new one simply stays ours.
+      if (st) {
+        fs.rmSync(tmp, { force: true });
+        return fs.writeFileSync(file, content);
+      }
+    }
   }
   try {
     fs.renameSync(tmp, file);
@@ -59,5 +67,35 @@ export function atomicWrite(file, content) {
     fs.rmSync(tmp, { force: true });
     if (err.code !== 'EPERM' && err.code !== 'EBUSY' && err.code !== 'EACCES') throw err;
     fs.writeFileSync(file, content);
+  }
+}
+
+/**
+ * Under root (sudo), files and directories keepkeys creates belong to the
+ * owner of the closest existing directory, i.e. the project's user, not root.
+ * Returns [uid, gid] or null when nothing needs changing.
+ */
+export function inheritedOwner(dir) {
+  if (typeof process.getuid !== 'function' || process.getuid() !== 0) return null;
+  let d = dir;
+  while (!fs.existsSync(d) && path.dirname(d) !== d) d = path.dirname(d);
+  try {
+    const st = fs.statSync(d);
+    return st.uid !== 0 ? [st.uid, st.gid] : null;
+  } catch {
+    return null;
+  }
+}
+
+/** mkdir -p, giving new directories the owner of the closest existing one (see inheritedOwner). */
+export function mkdirOwned(dir) {
+  const owner = inheritedOwner(dir);
+  const first = fs.mkdirSync(dir, { recursive: true });
+  if (!owner || !first) return;
+  for (let d = dir; d.length >= first.length; d = path.dirname(d)) {
+    try {
+      fs.chownSync(d, owner[0], owner[1]);
+    } catch {}
+    if (d === first) break;
   }
 }

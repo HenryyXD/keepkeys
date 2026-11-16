@@ -7,6 +7,7 @@ import { review, commit, summary } from './core.js';
 import { readHidden, readStdin, confirm } from './prompt.js';
 import { readClipboard, clipboardAvailable } from './clipboard.js';
 import { isHeadless, isRemoteSession, handoffCommand } from './env.js';
+import { mayShowConfirmUrl } from './open-browser.js';
 import { collectViaPage, collectViaClipboard, confirmViaPage } from './handoff.js';
 import { suggestWhere, clipboardMatch, lastFour } from './detect.js';
 import { validateName } from './paths.js';
@@ -205,6 +206,9 @@ async function obtain(values) {
 function chooseMode(values) {
   if (values.stdin) return 'stdin';
   if (values.browser) return 'browser';
+  // An agent's shell on a server or over SSH: nobody here can answer a
+  // clipboard request (or confirm it), even when a clipboard is readable.
+  if (!process.stdin.isTTY && isHeadless()) return 'handoff';
   if (values.clipboard) {
     if (!clipboardAvailable()) {
       throw new KeepKeysError(
@@ -225,6 +229,9 @@ function chooseMode(values) {
  * agent (no terminal) on a server or over SSH. The command never contains a
  * secret. stdout gets the bare command so an agent can pass it on verbatim.
  */
+// Flags the person's own run needs too.
+const passOn = (values) => [...(values.check ? ['--check'] : []), ...(values['allow-any-file'] ? ['--allow-any-file'] : [])];
+
 function handoff(root, args, names) {
   const cmd = handoffCommand(root, args);
   const what = names.length === 1 ? names[0] : `${names.length} keys (${names.join(', ')})`;
@@ -239,11 +246,11 @@ function handoff(root, args, names) {
 const logLine = (m) => err(`keepkeys: ${m}`);
 
 // The confirm page's address is kept from stdout/stderr, which an agent
-// reads, so the agent cannot approve a value itself. It is printed only when
-// no browser could be opened (headless machines, tests).
+// reads, so the agent cannot approve a value itself (only the test suite can
+// opt in to seeing it).
 function announceConfirm(url, opened) {
   if (opened) err('keepkeys: please confirm the copied value in the browser page that just opened');
-  else err(`keepkeys: open ${url} to confirm the copied value`);
+  else if (mayShowConfirmUrl()) err(`keepkeys: open ${url} to confirm the copied value`);
 }
 
 async function confirmInTerminal({ destinations, ending, chars, warnings }) {
@@ -308,8 +315,7 @@ async function add(root, name, values) {
   if (mode === 'handoff') {
     const args = ['add', name];
     if (values.to) args.push('--to', values.to);
-    if (values.check) args.push('--check');
-    return handoff(root, args, [name]);
+    return handoff(root, [...args, ...passOn(values)], [name]);
   }
 
   if (mode === 'browser') {
@@ -374,8 +380,8 @@ async function fill(root, values) {
   // --clipboard asks to copy them one by one. On a server or over SSH: the
   // command for the person's own terminal.
   const tty = Boolean(process.stdin.isTTY);
-  const mode = values.clipboard ? 'clipboard' : values.browser ? 'browser' : tty ? 'prompt' : isHeadless() ? 'handoff' : 'browser';
-  if (mode === 'handoff') return handoff(root, [], todo.map((s) => s.name));
+  const mode = values.browser ? 'browser' : !tty && isHeadless() ? 'handoff' : values.clipboard ? 'clipboard' : tty ? 'prompt' : 'browser';
+  if (mode === 'handoff') return handoff(root, passOn(values), todo.map((s) => s.name));
   if (mode === 'clipboard' && !clipboardAvailable()) chooseMode({ clipboard: true });
   if (mode === 'browser') {
     const results = await collectViaPage(
@@ -404,7 +410,7 @@ async function fill(root, values) {
     try {
       await store(s.name, raw, s.resolved, values, true);
     } catch (e) {
-      if (e.exitCode !== EXIT.CANCELLED) throw e;
+      if (e.exitCode !== EXIT.CANCELLED || e.interrupted) throw e;
       err(color.dim(`  · ${e.message}`));
     }
   }

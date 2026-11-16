@@ -5,12 +5,13 @@
 First version.
 
 Servers, SSH and sudo:
-- On a server or over SSH, an agent's `keepkeys` / `keepkeys add` (no terminal) prints the one command the person runs in their own terminal, and exits with code 4, instead of waiting for a clipboard or a page nobody can reach. MCP `request_secret` and `request_missing_secrets` return that command at once. `KEEPKEYS_HEADLESS=1/0` overrides the guess.
+- On a server or over SSH, an agent's `keepkeys` / `keepkeys add` (no terminal, with or without `--clipboard`) prints the one command the person runs in their own terminal, and exits with code 4, instead of waiting for a clipboard or a page nobody can reach. MCP `request_secret` and `request_missing_secrets` return that command at once. `KEEPKEYS_HEADLESS=1/0` overrides the guess.
 - `--clipboard` fails at once with an explanation when there is no clipboard to read (it used to wait 5 minutes in silence).
 - `--browser` no longer claims to have opened a page on a machine without a display; over SSH it prints the `ssh -L` tunnel to use. The page accepts `localhost` and any local port, so tunnels work.
 - Rewriting an env file keeps its owner and mode, also under `sudo`; new files created by root go to the directory's owner. Permission errors name the owner instead of a temp file.
 - Fixed: on X11 with `xclip`, keepkeys hung after saving until something else was copied.
-- The terminal's "Save anyway? [y/N]" takes one key press without echo; a paste there is discarded instead of shown on screen.
+- The terminal's "Save anyway? [y/N]" no longer echoes: it takes y/n and Enter, and a paste there (bracketed, or a fast burst) is discarded instead of shown on screen or taken as an answer. Ctrl+C there stops the whole run.
+- The confirm page's address is never printed (an agent reading the output could approve a value itself). Where no browser can be opened, an unrecognised value is not saved and keepkeys says to use the terminal.
 - IDs, user names and passwords are not held to API-key rules (a 9-digit chat ID or a Gmail app password with spaces no longer needs a confirmation).
 - The default destination fits any project: an existing `.env.local` or `.env`; else `.env.local` for frameworks that use it (Next.js, Vite, Astro, SvelteKit, CRA, Vue CLI, read from `package.json`); else `.env`, which docker compose, python-dotenv, Rails, Laravel, Go and `node --env-file` all read. It used to be `.env.local` everywhere.
 - Runs on Node 18.19+ (the `nodejs` package in Ubuntu 24.04 and Debian 12).

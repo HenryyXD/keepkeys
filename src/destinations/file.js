@@ -31,9 +31,16 @@ export function fileDestination(spec, root, opts) {
         throw new KeepKeysError(permissionHint(rel, abs));
       }
       notes.push(before === null ? 'created' : replaced ? 'replaced existing value' : 'added');
-      const ig = ensureIgnored(abs, root);
-      if (ig.added) notes.push('added to .gitignore');
       const warnings = [];
+      let ig = { added: false, tracked: false };
+      try {
+        ig = ensureIgnored(abs, root);
+      } catch (err) {
+        // The key is already saved; don't report that as a failure.
+        if (err.code !== 'EACCES' && err.code !== 'EPERM') throw err;
+        warnings.push(`could not update .gitignore (permission denied); add /${rel} to it yourself so the key is never committed`);
+      }
+      if (ig.added) notes.push('added to .gitignore');
       if (ig.tracked) {
         warnings.push(
           `${rel} is already committed to git; .gitignore cannot hide it. Run: git rm --cached ${rel}` +

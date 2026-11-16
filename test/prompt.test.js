@@ -80,20 +80,69 @@ test('Ctrl+C cancels', async () => {
   await assert.rejects(p, /cancelled/);
 });
 
-test('confirm takes one key press, and a paste is neither echoed nor taken as an answer', async () => {
+const pause = (ms = 40) => new Promise((r) => setTimeout(r, ms));
+const typeSlowly = async (t, text) => {
+  for (const ch of text) {
+    t.input.write(ch);
+    await pause();
+  }
+};
+
+test('confirm: a paste is never echoed or taken as an answer, whole or one character at a time', async () => {
   const { confirm } = await import('../src/prompt.js');
   const t = fakeTty();
-  const p = confirm('Save anyway?', t);
-  t.input.write('\x1b[200~sk-ant-NEXTKEY-0123456789\x1b[201~');
-  t.input.write('henry@example.com');
-  t.input.write('y');
+  let settled = false;
+  const p = confirm('Save anyway?', t).finally(() => (settled = true));
+  t.input.write('\x1b[200~sk-ant-NEXTKEY-0123456789\r\x1b[201~');
+  // A console without bracketed paste delivers a paste one character per read, fast.
+  for (const ch of 'sk-proj-abcdefXy12\r') t.input.write(ch);
+  await pause(60);
+  assert.equal(settled, false, 'a "y" inside a pasted key answered the question');
+  await typeSlowly(t, 'y\r');
   assert.equal(await p, true);
-  assert.ok(!t.shown().includes('NEXTKEY'), 'the pasted key was echoed');
-  assert.ok(!t.shown().includes('henry@'), 'the pasted text was echoed');
+  assert.ok(!t.shown().includes('NEXTKEY') && !t.shown().includes('abcdef'), 'pasted text was echoed');
   assert.match(t.shown(), /ignored a paste/);
+});
+
+test('confirm: y needs Enter (so the Enter is not left for the next prompt); Enter alone is no', async () => {
+  const { confirm } = await import('../src/prompt.js');
+  const t = fakeTty();
+  let settled = false;
+  const p = confirm('Save anyway?', t).finally(() => (settled = true));
+  t.input.write('y');
+  await pause(60);
+  assert.equal(settled, false);
+  await typeSlowly(t, '\r');
+  assert.equal(await p, true);
 
   const t2 = fakeTty();
   const p2 = confirm('Save anyway?', t2);
   t2.input.write('\r');
-  assert.equal(await p2, false, 'Enter means no');
+  assert.equal(await p2, false);
+});
+
+test('confirm: Ctrl+C is an interrupt that stops the whole run', async () => {
+  const { confirm } = await import('../src/prompt.js');
+  const t = fakeTty();
+  const p = confirm('Save anyway?', t);
+  t.input.write('\x03');
+  await assert.rejects(p, (e) => e.interrupted === true);
+});
+
+test('confirm: after a stray paste, y and Enter typed next still answer yes', async () => {
+  const { confirm } = await import('../src/prompt.js');
+  const t = fakeTty();
+  const p = confirm('Save anyway?', t);
+  t.input.write('\x1b[200~abcd efgh ijkl mnop\x1b[201~');
+  await pause(60);
+  await typeSlowly(t, 'y\r');
+  assert.equal(await p, true);
+
+  const t2 = fakeTty();
+  const p2 = confirm('Save anyway?', t2);
+  for (const ch of 'sk-proj-abcdef0123') t2.input.write(ch); // a fast burst, no Enter
+  await pause(350);
+  await typeSlowly(t2, 'y\r');
+  assert.equal(await p2, true);
+  assert.ok(!t2.shown().includes('abcdef'));
 });

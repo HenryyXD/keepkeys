@@ -192,3 +192,22 @@ Pendências conhecidas (fora do escopo):
 - Um `.gitignore` **novo** criado via sudo continua pertencendo ao root (modo 644, então é legível).
 - macOS e Windows reais não foram testados.
 - `apt install nodejs npm` (224 MB) aparece no README como provisório, até o E2 existir.
+
+## 5. Revisão independente (depois do relatório)
+
+Um revisor separado recebeu o diff e as regras de segurança, sem as minhas conclusões. Achados e o que foi feito:
+
+| # | Achado | Gravidade | Status |
+|---|---|---|---|
+| 1 | O CLI sem TTY imprimia no stderr a URL da página de confirmação quando não conseguia abrir o navegador (SSH com clipboard legível, desktop sem `xdg-open`). O agente podia aprovar o valor sozinho (reproduzido com `curl`). A regressão veio desta branch, porque `openBrowser` passou a retornar `false` com mais frequência. | **Segurança** | Corrigido: a URL nunca é impressa (só com `KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL=1`, usado na suíte de testes). Sem navegador, nada é salvo e a mensagem orienta a usar o terminal. Em headless sem TTY, até `--clipboard` vira a entrega por comando. Teste de regressão adicionado. |
+| 2 | `y` + Enter no `y/N` deixava o Enter para o próximo prompt, que pulava a chave seguinte | Correção | Corrigido: a resposta exige Enter. |
+| 3 | Colagem chegando caractere a caractere podia responder "sim" | Correção/segurança | Corrigido: o confirm detecta rajadas e bracketed paste e descarta. |
+| 4 | O `~` no comando de entrega aponta para outro diretório se a pessoa é outro usuário | Correção | Corrigido: o caminho é sempre absoluto. |
+| 5 | Aspas no Windows: `$()`, `%VAR%` e vírgulas em PowerShell/cmd | Segurança (só Windows via SSH) | Corrigido: aspas que cmd e PowerShell leem igual; se o caminho tem `$ % " \`` etc., o comando sai sem `--root` e com "(run it inside …)". |
+| 6 | O comando de entrega perdia `--check` e `--allow-any-file` | Correção | Corrigido. |
+| 7 | `chown` com EINVAL (namespace de usuário) quebrava a escrita | Robustez | Corrigido: qualquer falha de `chown` → escrita no lugar. |
+| 8 | Pastas e `.gitignore` novos via sudo ficavam com o root; erro de permissão no `.gitignore` depois de salvar | Menor | Corrigido. |
+| 9 | Ctrl+C no `y/N` dentro do `fill` não parava a execução | UX | Corrigido. |
+| 10 | `npm_command=exec` herdado e caminhos de symlink do node | Menor | Corrigido: exige o cache `_npx`, compara realpath e pina `keepkeys@<versão>`. |
+
+Achado falso? Nenhum: todos se confirmaram, o 1, o 2 e o 3 por execução. Depois das correções: `npm test` com 150 testes passando no Node 22 e no Node 18.19.1 (Ubuntu), e o exploit do revisor deixou de funcionar nos dois cenários.

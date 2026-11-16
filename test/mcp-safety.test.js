@@ -10,7 +10,7 @@ function server() {
   const dir = tmpProject();
   const clip = path.join(dir, '..', `${path.basename(dir)}.clipboard`);
   fs.writeFileSync(clip, '');
-  const r = start(['mcp', '--root', dir], { cwd: dir, env: { KEEPKEYS_FAKE_CLIPBOARD: clip } });
+  const r = start(['mcp', '--root', dir], { cwd: dir, env: { KEEPKEYS_FAKE_CLIPBOARD: clip, KEEPKEYS_UNSAFE_SHOW_CONFIRM_URL: '1' } });
   const lines = () => r.out.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const send = (m) => r.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', ...m })}\n`);
   const reply = (id) => waitFor(() => lines().find((m) => m.id === id), { timeoutMs: 15000 });

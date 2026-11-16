@@ -62,3 +62,33 @@ test('a file someone else owns in a shared directory is rewritten in place, keep
   assert.equal(st.uid, 4321);
   assert.equal(fs.readFileSync(f, 'utf8'), 'A=2\n');
 });
+
+test('under sudo, new directories and a new .gitignore also go to the project owner', { skip: !root && 'needs root' }, async () => {
+  const { ensureIgnored } = await import('../src/gitignore.js');
+  const dir = tmpProject({ git: false });
+  fs.chownSync(dir, 4321, 4321);
+  const f = path.join(dir, 'config', 'deep', '.env');
+  atomicWrite(f, 'A=1\n');
+  for (const p of [path.join(dir, 'config'), path.join(dir, 'config', 'deep'), f]) assert.equal(fs.statSync(p).uid, 4321, p);
+  ensureIgnored(f, dir);
+  assert.equal(fs.statSync(path.join(dir, '.gitignore')).uid, 4321);
+});
+
+test('a chown that fails for any reason (e.g. EINVAL in a user namespace) falls back to writing in place', { skip: !root && 'needs root' }, () => {
+  const dir = tmpProject({ git: false });
+  const f = path.join(dir, '.env');
+  fs.writeFileSync(f, 'A=1\n');
+  fs.chownSync(f, 4321, 4321);
+  const orig = fs.chownSync;
+  fs.chownSync = () => {
+    throw Object.assign(new Error('EINVAL'), { code: 'EINVAL' });
+  };
+  try {
+    atomicWrite(f, 'A=2\n');
+  } finally {
+    fs.chownSync = orig;
+  }
+  assert.equal(fs.readFileSync(f, 'utf8'), 'A=2\n');
+  assert.equal(fs.statSync(f).uid, 4321);
+  assert.deepEqual(fs.readdirSync(dir).filter((n) => n.endsWith('.tmp')), []);
+});
