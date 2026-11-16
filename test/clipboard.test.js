@@ -138,10 +138,10 @@ test('MCP request_secret uses the clipboard by default and tells the agent what 
     fs.writeFileSync(p.clip, STRIPE);
     const res = await waitFor(() => lines().find((m) => m.id === 2), { timeoutMs: 15000 });
     const text = res.result.content[0].text;
-    assert.match(text, /ok: saved STRIPE_SECRET_KEY \(ends in …C0PY\) to \.env\.local/);
+    assert.match(text, /ok: saved STRIPE_SECRET_KEY \(ends in …C0PY\) to \.env;/);
     assert.match(text, /Next: .*confirm in chat that STRIPE_SECRET_KEY ending in …C0PY was received/);
     assert.ok(!r.out.stdout.includes(STRIPE));
-    assert.equal(read(p.dir, '.env.local'), `STRIPE_SECRET_KEY=${STRIPE}\n`);
+    assert.equal(read(p.dir, '.env'), `STRIPE_SECRET_KEY=${STRIPE}\n`);
   } finally {
     r.child.stdin.end();
   }

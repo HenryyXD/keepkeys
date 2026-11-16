@@ -31,7 +31,7 @@ test('a request cancelled by the client stops watching and is never answered', a
     await sleep(500);
     s.copy(OPENROUTER);
     await sleep(1200);
-    assert.equal(read(s.dir, '.env.local'), null, 'saved after cancellation');
+    assert.equal(read(s.dir, '.env'), null, 'saved after cancellation');
     assert.equal(s.lines().find((m) => m.id === 7), undefined, 'answered a cancelled request');
   } finally {
     s.r.child.stdin.end();
@@ -53,7 +53,7 @@ test('a new request replaces one that is still waiting', async () => {
     const second = await s.reply(2);
     assert.match(second.result.content[0].text, /ok: saved OPENROUTER_API_KEY \(ends in …SAFE\)/);
     // Only one watcher ran: the key was written once, by the second request.
-    assert.equal(read(s.dir, '.env.local'), `OPENROUTER_API_KEY=${OPENROUTER}\n`);
+    assert.equal(read(s.dir, '.env'), `OPENROUTER_API_KEY=${OPENROUTER}\n`);
   } finally {
     s.r.child.stdin.end();
   }
@@ -79,7 +79,7 @@ test('the confirm page address never reaches the agent', async () => {
     s.copy('svc_7f3k9d2m5x8q1w4e');
     const url = await waitForPageUrl(s.r.out); // stderr only (no browser in tests)
     assert.ok(!s.r.out.stdout.includes(new URL(url).pathname), 'confirm URL sent to the agent');
-    assert.equal(read(s.dir, '.env.local'), null);
+    assert.equal(read(s.dir, '.env'), null);
     await post(url, 'confirm', { name: 'MY_SERVICE_TOKEN', accept: true });
     const res = await s.reply(1);
     assert.match(res.result.content[0].text, /ok: saved MY_SERVICE_TOKEN/);

@@ -109,7 +109,18 @@ test('invalid keepkeys.json is a clear error', () => {
   assert.throws(() => loadManifest(dir), /keepkeys\.json is not valid JSON/);
 });
 
-test('without a manifest or env file the default is still .env.local', () => {
+test('the default fits the project: .env, or .env.local for Next.js / Vite-style projects', () => {
   const dir = tmpProject();
+  assert.equal(defaultDestination(dir), '.env', 'plain project: docker compose, Python, Go, …');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { express: '^5' } }));
+  assert.equal(defaultDestination(dir), '.env');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { next: '^16' } }));
   assert.equal(defaultDestination(dir), '.env.local');
+  write(dir, 'package.json', JSON.stringify({ devDependencies: { vite: '^7' } }));
+  assert.equal(defaultDestination(dir), '.env.local');
+  write(dir, 'package.json', '{ not json');
+  assert.equal(defaultDestination(dir), '.env');
+  write(dir, '.env', '');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { next: '^16' } }));
+  assert.equal(defaultDestination(dir), '.env', 'an existing file always wins');
 });

@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <b>Don't paste API keys into your AI chat. Just copy the key; keepkeys writes it to <code>.env.local</code>.</b>
+  <b>Don't paste API keys into your AI chat. Just copy the key; keepkeys writes it to your <code>.env</code> file.</b>
   <br>
   <sub><b>K</b>eys <b>E</b>xcluded from <b>E</b>very <b>P</b>rompt</sub>
 </p>
@@ -25,7 +25,7 @@
   <sub>Keys keepkeys recognises (Stripe, OpenAI, Anthropic, …) are saved straight away; others, like this made-up Acme key, get a one-click confirm page first.</sub>
 </p>
 
-Your coding agent needs an API key in `.env.local`. Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
+Your coding agent needs an API key in `.env` (or `.env.local`). Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
 
 - **Zero dependencies.** One `npx` command, Node 18.19+, Windows, macOS and Linux, including servers over SSH.
 - **Works with any agent.** It has an MCP server for Claude Code, Cursor and other MCP clients. A plain CLI covers everything else.
@@ -176,7 +176,7 @@ npx keepkeys list --json                                 # status for scripts an
 
 | Option | Meaning |
 |---|---|
-| `--to a,b` | Destinations: env files and/or `env:user`. Defaults to the manifest; else an existing `.env.local` or `.env`; else `.env` when there is a `.env.example`; else `.env.local`. |
+| `--to a,b` | Destinations: env files and/or `env:user`. Defaults to the manifest; else an existing `.env.local` or `.env`; else `.env.local` in Next.js / Vite / Astro / SvelteKit / CRA / Vue CLI projects; else `.env`, which every dotenv loader reads. |
 | `--where URL` | Where to get the key; shown while asking. Known providers get a link automatically. |
 | `--description TEXT` | What the key is for. |
 | `--clipboard` | Wait for you to copy the key, then clear the clipboard. The default for an agent on a desktop. Fails at once where there is no clipboard (servers, SSH). |

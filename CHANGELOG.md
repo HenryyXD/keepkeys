@@ -12,7 +12,7 @@ Servers, SSH and sudo:
 - Fixed: on X11 with `xclip`, keepkeys hung after saving until something else was copied.
 - The terminal's "Save anyway? [y/N]" takes one key press without echo; a paste there is discarded instead of shown on screen.
 - IDs, user names and passwords are not held to API-key rules (a 9-digit chat ID or a Gmail app password with spaces no longer needs a confirmation).
-- With a `.env.example` and no env file yet, keys go to `.env` (what docker compose, python-dotenv, Next.js and Vite read), not `.env.local`.
+- The default destination fits any project: an existing `.env.local` or `.env`; else `.env.local` for frameworks that use it (Next.js, Vite, Astro, SvelteKit, CRA, Vue CLI, read from `package.json`); else `.env`, which docker compose, python-dotenv, Rails, Laravel, Go and `node --env-file` all read. It used to be `.env.local` everywhere.
 - Runs on Node 18.19+ (the `nodejs` package in Ubuntu 24.04 and Debian 12).
 
 - `keepkeys`, `add`, `list`: hidden terminal prompt (one Ctrl+V submits), `--stdin`, and a local browser page (`--browser`).

@@ -100,16 +100,31 @@ export function parseManifestJson(text, file = MANIFEST_JSON) {
   return { keys, defaultsTo };
 }
 
+// Frameworks whose own docs say to keep secrets in .env.local (they load it
+// on top of .env, and their .gitignore templates already ignore it).
+const ENV_LOCAL_FRAMEWORKS = ['next', 'vite', 'react-scripts', '@vue/cli-service', 'astro', '@sveltejs/kit'];
+
+function usesEnvLocal(root) {
+  try {
+    const pkg = JSON.parse(readText(path.join(root, 'package.json')) ?? '{}');
+    const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+    return ENV_LOCAL_FRAMEWORKS.some((d) => d in deps);
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Picks the default destination when nothing names one: an existing
- * .env.local or .env; else the file a .env.example stands for (.env, which
- * docker compose, python-dotenv, Next.js and Vite all read); else .env.local.
+ * Picks the default destination when nothing names one, so it fits any
+ * project: an env file that already exists (.env.local, then .env); else
+ * .env.local for frameworks that use it (Next.js, Vite, …); else .env, the
+ * one file every dotenv loader reads (docker compose, python-dotenv, Rails,
+ * Laravel, Go, Node --env-file, …).
  */
 export function defaultDestination(root) {
   if (fs.existsSync(path.join(root, '.env.local'))) return '.env.local';
   if (fs.existsSync(path.join(root, '.env'))) return '.env';
-  if (['.env.example', '.env.sample', '.env.template'].some((f) => fs.existsSync(path.join(root, f)))) return '.env';
-  return '.env.local';
+  return usesEnvLocal(root) ? '.env.local' : '.env';
 }
 
 /**
