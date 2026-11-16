@@ -69,3 +69,15 @@ test('times out', async () => {
   const page = await startPage(items, async () => ({ ok: true }), { timeoutMs: 50 });
   assert.equal((await page.done).reason, 'timeout');
 });
+
+test('works through an SSH tunnel on another local port, still only for loopback host names', () =>
+  withPage(async (page, u) => {
+    const body = JSON.stringify({ name: 'A_KEY', value: 'v'.repeat(20) });
+    const viaTunnel = { host: 'localhost:8765', origin: 'http://localhost:8765', 'content-type': 'application/json' };
+    assert.equal((await raw(page.url, { headers: { host: 'localhost:8765' } })).status, 200);
+    assert.equal((await raw(page.url, { headers: { host: 'evil.example:8765' } })).status, 403, 'DNS rebinding');
+    assert.equal((await raw(page.url, { headers: { host: '127.0.0.1.evil.example:80' } })).status, 403);
+    // The Origin must be the same tunnel address the page was loaded from.
+    assert.equal((await raw(`${page.url}/submit`, { method: 'POST', headers: { ...viaTunnel, origin: u.origin }, body })).status, 403);
+    assert.equal((await raw(`${page.url}/submit`, { method: 'POST', headers: viaTunnel, body })).status, 200);
+  }));

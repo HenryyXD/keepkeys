@@ -1,4 +1,6 @@
+import fs from 'node:fs';
 import path from 'node:path';
+import { KeepKeysError } from '../errors.js';
 import { readText, atomicWrite } from '../fsutil.js';
 import { upsert, hasValue } from '../dotenv.js';
 import { ensureIgnored } from '../gitignore.js';
@@ -22,7 +24,12 @@ export function fileDestination(spec, root, opts) {
       // direnv only passes on variables that are exported.
       const exportAll = path.basename(abs) === '.envrc';
       const { text, replaced } = upsert(before ?? '', name, value, { exportAll });
-      atomicWrite(abs, text);
+      try {
+        atomicWrite(abs, text);
+      } catch (err) {
+        if (err.code !== 'EACCES' && err.code !== 'EPERM') throw err;
+        throw new KeepKeysError(permissionHint(rel, abs));
+      }
       notes.push(before === null ? 'created' : replaced ? 'replaced existing value' : 'added');
       const ig = ensureIgnored(abs, root);
       if (ig.added) notes.push('added to .gitignore');
@@ -36,4 +43,18 @@ export function fileDestination(spec, root, opts) {
       return { notes, warnings };
     },
   };
+}
+
+// Explains a permission error in terms of who owns the file, instead of the
+// temp file name the error was raised for.
+function permissionHint(rel, abs) {
+  let target = abs;
+  while (!fs.existsSync(target) && path.dirname(target) !== target) target = path.dirname(target);
+  let owner = '';
+  try {
+    const st = fs.statSync(target);
+    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) owner = ` (${target === abs ? 'it' : path.basename(target) || target} belongs to user id ${st.uid})`;
+  } catch {}
+  const sudo = owner && typeof process.getuid === 'function' ? ' Run keepkeys as the user who owns the project, e.g. sudo -u <owner> keepkeys …; keepkeys keeps the file\'s owner and mode either way.' : '';
+  return `cannot write ${rel}: permission denied${owner}.${sudo}`;
 }

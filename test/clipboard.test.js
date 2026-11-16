@@ -226,3 +226,22 @@ test('notification commands quote their text', async () => {
   assert.equal(cmd, 'powershell.exe');
   assert.match(Buffer.from(winArgs.at(-1), 'base64').toString('utf16le'), /'it''s'/);
 });
+
+test('clearing through xclip does not wait for the process that keeps owning the clipboard', { skip: process.platform !== 'linux' }, () => {
+  const dir = tmpProject({ git: false });
+  const clip = path.join(dir, 'clip.txt');
+  fs.writeFileSync(clip, STRIPE);
+  // A stand-in for xclip: -o prints the clipboard; -i stores stdin and leaves a
+  // child running that holds stdout open, as the real xclip does.
+  fs.writeFileSync(
+    path.join(dir, 'xclip'),
+    `#!/bin/sh\ncase "$*" in *-o*) /bin/cat ${clip} ;; *) /bin/cat > ${clip}; (/bin/sleep 20) & ;; esac\n`,
+    { mode: 0o755 },
+  );
+  const script = `import('${new URL('../src/clipboard.js', import.meta.url).href}').then((m) => console.log(m.clearClipboardIf(${JSON.stringify(STRIPE)})))`;
+  const t0 = Date.now();
+  const r = spawnSync(process.execPath, ['-e', script], { env: { PATH: dir }, encoding: 'utf8', timeout: 15000 });
+  assert.equal(r.stdout.trim(), 'true', r.stderr);
+  assert.ok(Date.now() - t0 < 5000, `took ${Date.now() - t0} ms`);
+  assert.equal(fs.readFileSync(clip, 'utf8'), '');
+});

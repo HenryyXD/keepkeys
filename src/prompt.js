@@ -142,10 +142,48 @@ export function readHidden(question, { input = process.stdin, output = process.s
   });
 }
 
-export async function confirm(question, { input = process.stdin, output = process.stderr } = {}) {
-  const rl = readline.createInterface({ input, output, terminal: true });
+/**
+ * Asks a yes/no question with a single key press, without echo. A paste (a
+ * burst of characters, or bracketed paste) is never shown: someone pasting
+ * the next key too early would otherwise see it printed on screen. It is
+ * thrown away and the question is asked again.
+ */
+export function confirm(question, { input = process.stdin, output = process.stderr } = {}) {
+  if (!input.isTTY) return confirmLine(question, { input, output });
+  return new Promise((resolve, reject) => {
+    const finish = (answer, shown, err) => {
+      input.removeListener('data', onData);
+      input.setRawMode(false);
+      input.pause();
+      output.write(`${shown}\x1b[?2004l\n`);
+      if (err) reject(err);
+      else resolve(answer);
+    };
+    const onData = (chunk) => {
+      const s = String(chunk);
+      if (s === '\x03') return finish(false, '', new KeepKeysError('cancelled', EXIT.CANCELLED));
+      if (s === 'y' || s === 'Y') return finish(true, 'y');
+      if (s === 'n' || s === 'N' || s === '\r' || s === '\n' || s === '\x1b' || s === '\x04') return finish(false, 'n');
+      if (s.length > 1 && !/^\x1b\[[0-9;]*[A-Za-z~]$/.test(s)) {
+        output.write(`\r\x1b[K  (ignored a paste: nothing was shown or saved)\n${question} [y/N] `);
+      }
+    };
+    output.write(`\x1b[?2004h${question} [y/N] `);
+    input.setRawMode(true);
+    input.setEncoding('utf8');
+    input.on('data', onData);
+    input.resume();
+  });
+}
+
+async function confirmLine(question, { input, output }) {
+  const rl = readline.createInterface({ input, output, terminal: false });
   try {
-    const answer = await new Promise((resolve) => rl.question(`${question} [y/N] `, resolve));
+    output.write(`${question} [y/N] `);
+    const answer = await new Promise((resolve) => {
+      rl.once('line', resolve);
+      rl.once('close', () => resolve(''));
+    });
     return /^y(es)?$/i.test(answer.trim());
   } finally {
     rl.close();

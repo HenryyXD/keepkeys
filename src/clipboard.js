@@ -12,6 +12,14 @@ function run(cmd, args, input) {
   return r.stdout;
 }
 
+// For commands that only take input. xclip and xsel fork a process that keeps
+// owning the clipboard; if it inherited our stdout pipe, spawnSync would wait
+// until something else is copied, and keepkeys would hang after saving.
+function runInputOnly(cmd, args, input) {
+  const r = spawnSync(cmd, args, { input, stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
+  return r.error || r.status !== 0 ? null : '';
+}
+
 const PS_ARGS = ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand'];
 const encodePs = (script) => Buffer.from(script, 'utf16le').toString('base64');
 const fromB64 = (s) => Buffer.from(s.trim(), 'base64').toString('utf8');
@@ -63,12 +71,12 @@ const READERS = {
 };
 
 const CLEARERS = {
-  win32: [() => run('clip', [], '')],
-  darwin: [() => run('pbcopy', [], '')],
+  win32: [() => runInputOnly('clip', [], '')],
+  darwin: [() => runInputOnly('pbcopy', [], '')],
   linux: [
-    () => run('wl-copy', ['--clear']),
-    () => run('xclip', ['-selection', 'clipboard', '-i'], ''),
-    () => run('xsel', ['--clipboard', '--clear']),
+    () => runInputOnly('wl-copy', ['--clear']),
+    () => runInputOnly('xclip', ['-selection', 'clipboard', '-i'], ''),
+    () => runInputOnly('xsel', ['--clipboard', '--clear']),
   ],
 };
 

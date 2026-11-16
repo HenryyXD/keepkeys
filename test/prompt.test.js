@@ -79,3 +79,21 @@ test('Ctrl+C cancels', async () => {
   t.input.write('\x03');
   await assert.rejects(p, /cancelled/);
 });
+
+test('confirm takes one key press, and a paste is neither echoed nor taken as an answer', async () => {
+  const { confirm } = await import('../src/prompt.js');
+  const t = fakeTty();
+  const p = confirm('Save anyway?', t);
+  t.input.write('\x1b[200~sk-ant-NEXTKEY-0123456789\x1b[201~');
+  t.input.write('henry@example.com');
+  t.input.write('y');
+  assert.equal(await p, true);
+  assert.ok(!t.shown().includes('NEXTKEY'), 'the pasted key was echoed');
+  assert.ok(!t.shown().includes('henry@'), 'the pasted text was echoed');
+  assert.match(t.shown(), /ignored a paste/);
+
+  const t2 = fakeTty();
+  const p2 = confirm('Save anyway?', t2);
+  t2.input.write('\r');
+  assert.equal(await p2, false, 'Enter means no');
+});

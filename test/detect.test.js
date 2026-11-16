@@ -137,3 +137,12 @@ test('a catastrophic expected_pattern cannot stall inspect', () => {
   assert.ok(Date.now() - t0 < 2000, 'inspect must return quickly');
   assert.match(warnings.join(), /didn't recognise the format/);
 });
+
+test('IDs, user names and passwords are not held to API-key rules', () => {
+  assert.deepEqual(inspect('TELEGRAM_CHAT_ID', '987654321').warnings, []);
+  assert.deepEqual(inspect('IMAP_USER', 'henry@example.com').warnings, []);
+  assert.deepEqual(inspect('IMAP_PASSWORD', 'abcd efgh ijkl mnop').warnings, [], 'Gmail app passwords have spaces');
+  assert.match(inspect('IMAP_PASSWORD', 'abc').warnings.join(), /very short/);
+  assert.match(inspect('IMAP_PASSWORD', 'line1\nline2').warnings.join(), /line breaks/);
+  assert.match(inspect('OPENAI_API_KEY', 'sk short').warnings.join(), /spaces/);
+});

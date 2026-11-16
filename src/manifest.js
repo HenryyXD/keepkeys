@@ -100,10 +100,15 @@ export function parseManifestJson(text, file = MANIFEST_JSON) {
   return { keys, defaultsTo };
 }
 
-/** Picks the default destination when nothing names one. */
+/**
+ * Picks the default destination when nothing names one: an existing
+ * .env.local or .env; else the file a .env.example stands for (.env, which
+ * docker compose, python-dotenv, Next.js and Vite all read); else .env.local.
+ */
 export function defaultDestination(root) {
   if (fs.existsSync(path.join(root, '.env.local'))) return '.env.local';
   if (fs.existsSync(path.join(root, '.env'))) return '.env';
+  if (['.env.example', '.env.sample', '.env.template'].some((f) => fs.existsSync(path.join(root, f)))) return '.env';
   return '.env.local';
 }
 
