@@ -100,7 +100,7 @@ function writeRules(root, remove) {
     let next = text.replace(block, '\n');
     if (!remove) next = `${next.replace(/\s*$/, '')}${next.trim() ? '\n\n' : ''}${RULES}\n`;
     if (next !== text) {
-      fs.writeFileSync(f, next);
+      atomicWrite(f, next);
       err(`  ${remove ? 'removed rules from' : 'added rules to'} ${path.relative(root, f) || f}`);
     }
   }

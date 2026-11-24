@@ -15,6 +15,11 @@ export function shellQuote(value) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
 }
 
+// In fish, single quotes only treat \ and ' as escapes.
+export function fishQuote(value) {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
 export function rcFileFor({ shell = process.env.SHELL ?? '', platform = process.platform, home = os.homedir() } = {}) {
   if (process.env.KEEPKEYS_RC_FILE) return { file: process.env.KEEPKEYS_RC_FILE, fish: /\.fish$/.test(process.env.KEEPKEYS_RC_FILE) };
   const sh = path.basename(shell);
@@ -32,7 +37,7 @@ function rcLineRegex(name, fish) {
 /** Replaces every assignment of NAME in the rc text, or appends one. Pure. */
 export function upsertRc(text, name, value, { fish = false } = {}) {
   const eol = detectEol(text);
-  const line = fish ? `set -gx ${name} ${shellQuote(value)}  ${MARK}` : `export ${name}=${shellQuote(value)}  ${MARK}`;
+  const line = fish ? `set -gx ${name} ${fishQuote(value)}  ${MARK}` : `export ${name}=${shellQuote(value)}  ${MARK}`;
   const re = rcLineRegex(name, fish);
   const lines = text.length ? text.split(/\r?\n/) : [];
   let replaced = false;

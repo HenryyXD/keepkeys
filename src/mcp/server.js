@@ -143,13 +143,16 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
   }
 
   // A small diagnostic log (no secret values) so a stuck request can be
-  // explained afterwards: %TEMP%/keepkeys-mcp.log or $TMPDIR/keepkeys-mcp.log.
-  // It is private to the user (0600) and starts over past 256 KB.
-  const diagFile = process.env.KEEPKEYS_DIAG_LOG ?? path.join(os.tmpdir(), 'keepkeys-mcp.log');
+  // explained afterwards: ~/.keepkeys/mcp.log (a private 0700 folder, not a
+  // predictable path in a shared temp dir). The file is 0600 and starts over
+  // past 256 KB.
+  const diagFile = process.env.KEEPKEYS_DIAG_LOG ?? path.join(os.homedir(), '.keepkeys', 'mcp.log');
   function diag(text) {
     try {
+      fs.mkdirSync(path.dirname(diagFile), { recursive: true, mode: 0o700 });
       if (fs.statSync(diagFile, { throwIfNoEntry: false })?.size > 256 * 1024) fs.writeFileSync(diagFile, '');
       fs.appendFileSync(diagFile, `${new Date().toISOString()} [${process.pid}] ${text}\n`, { mode: 0o600 });
+      if (process.platform !== 'win32') fs.chmodSync(diagFile, 0o600);
     } catch {}
   }
 
@@ -158,8 +161,10 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
     notify('notifications/message', { level: 'info', logger: 'keepkeys', data: text });
   }
 
+  // The page address goes to the log only, never to the agent: anyone who has it
+  // can fill the page in.
   const announce = (url, opened) =>
-    info(opened ? `opened ${url} in the browser for the user to paste into` : `ask the user to open ${url} to paste the key`);
+    log(opened ? `opened ${url} in the browser for the user to paste into` : `open ${url} to paste the key`);
 
   function describeResults(results, base) {
     const lines = results.map((r) => {

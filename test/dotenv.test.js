@@ -79,5 +79,5 @@ test('.envrc values are inert when bash sources them', { skip: process.platform 
     assert.equal(r.stdout, value);
   }
   assert.equal(formatValue('sk_live_abc', { shell: true }), 'sk_live_abc');
-  assert.equal(formatValue("it's", { shell: true }), `'it'\''s'`);
+  assert.equal(formatValue("it's", { shell: true }), `'it'\\''s'`);
 });

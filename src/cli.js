@@ -171,7 +171,11 @@ function list(root, values) {
 
 // ---------------------------------------------------------------- add
 
+const plain = (s) => String(s).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ');
+
 function describe(name, dests, where, description) {
+  where = where && plain(where);
+  description = description && plain(description);
   err('');
   err(`${color.bold(name)}  → ${dests.map((d) => d.label).join(', ')}`);
   if (description) err(`  ${description}`);
@@ -258,6 +262,7 @@ function resolveFor(root, name, values) {
   const manifest = loadManifest(root);
   const entry = manifest.keys.find((k) => k.name === name);
   const specs = values.to ? splitList(values.to) : entry?.to ?? [defaultDestination(root)];
+  if (values['allow-any-file']) err(color.bold('warning: --allow-any-file lets keepkeys write secrets to any file, not just env files.'));
   const dests = resolveDestinations(specs, root, { allowAnyFile: values['allow-any-file'] });
   return {
     dests,
