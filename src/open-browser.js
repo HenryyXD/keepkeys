@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { safeCommand } from './winbin.js';
 
 /** Opens a URL in the default browser. Returns false if that was skipped or failed. */
 export function openBrowser(url) {
@@ -10,7 +11,9 @@ export function openBrowser(url) {
         ? ['open', [url]]
         : ['xdg-open', [url]];
   try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    const bin = safeCommand(cmd);
+    if (!bin) return false;
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.on('error', () => {});
     child.unref();
     return true;

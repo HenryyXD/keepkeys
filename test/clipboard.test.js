@@ -136,6 +136,10 @@ test('MCP request_secret uses the clipboard by default and tells the agent what 
     send({ id: 2, method: 'tools/call', params: { name: 'request_secret', arguments: { name: 'STRIPE_SECRET_KEY' } } });
     await waitFor(() => r.out.stderr.includes('copy STRIPE_SECRET_KEY now'));
     fs.writeFileSync(p.clip, STRIPE);
+    // The first clipboard save of a session is confirmed even with the right prefix.
+    const url = await waitForPageUrl(r.out);
+    assert.equal(read(p.dir, '.env.local'), null, 'saved before confirming');
+    assert.equal((await post(url, 'confirm', { name: 'STRIPE_SECRET_KEY', accept: true })).status, 200);
     const res = await waitFor(() => lines().find((m) => m.id === 2), { timeoutMs: 15000 });
     const text = res.result.content[0].text;
     assert.match(text, /ok: saved STRIPE_SECRET_KEY \(ends in …C0PY\) to \.env\.local/);

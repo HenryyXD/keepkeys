@@ -4,6 +4,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { safeCommand } from '../winbin.js';
 import { readText, atomicWrite } from '../fsutil.js';
 import { detectEol } from '../dotenv.js';
 import { KeepKeysError } from '../errors.js';
@@ -62,7 +63,7 @@ export function rcHas(text, name, { fish = false } = {}) {
 // console code page can mangle it.
 function powershell(script, input) {
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
+  const r = spawnSync(safeCommand('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
     input,
     encoding: 'utf8',
     windowsHide: true,
@@ -81,7 +82,7 @@ export function windowsSetUserEnv(name, value) {
 }
 
 export function windowsHasUserEnv(name) {
-  const r = spawnSync('reg', ['query', 'HKCU\\Environment', '/v', name], { encoding: 'utf8', windowsHide: true });
+  const r = spawnSync(safeCommand('reg'), ['query', 'HKCU\\Environment', '/v', name], { encoding: 'utf8', windowsHide: true });
   return r.status === 0;
 }
 

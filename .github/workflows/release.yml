@@ -1,0 +1,33 @@
+name: Release
+
+# Publishes to npm when a GitHub release is published, using npm trusted
+# publishing (OIDC): no long-lived NPM_TOKEN is stored in the repository, and
+# the package gets a provenance statement. Before the first run, add this
+# repository and workflow as a trusted publisher on the package's npm settings
+# page (the package must exist once, so the very first publish is manual).
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: The tag must match package.json
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          [ "${GITHUB_REF_NAME#v}" = "$v" ] || { echo "tag $GITHUB_REF_NAME does not match version $v"; exit 1; }
+      - run: npm test
+      - run: npm publish --provenance --access public

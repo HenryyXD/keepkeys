@@ -95,6 +95,10 @@ class ToolError extends Error {}
 
 export function runServer({ root = null, allowEnvUser = false, input = process.stdin, output = process.stdout, log = (s) => process.stderr.write(`keepkeys: ${s}\n`) } = {}) {
   let clientCaps = {};
+  // The first clipboard save of a session is always confirmed on the local
+  // page (name, ending and destination), even for a matching provider prefix:
+  // any process can write to the clipboard, and the agent picks the destination.
+  const trust = { confirmed: false };
   let rootsPromise = null;
   let nextId = 1;
   const pending = new Map();
@@ -246,7 +250,7 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
         });
       const results =
         method === 'clipboard'
-          ? [await collectViaClipboard(request, { log: info, debug: diag, confirm, signal })]
+          ? [await collectViaClipboard(request, { log: info, debug: diag, confirm, signal, trust })]
           : await collectViaPage([request], { announce, signal });
       diag(`request_secret ${keyName}: ${results[0].status}`);
       const text = describeResults(results, base);
