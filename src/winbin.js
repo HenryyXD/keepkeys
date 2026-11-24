@@ -22,7 +22,14 @@ const SYSTEM32 = {
   rundll32: (r) => path.join(r, 'System32', 'rundll32.exe'),
 };
 
-const sameDir = (a, b) => path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase();
+const real = (p) => {
+  try {
+    return fs.realpathSync.native(p);
+  } catch {
+    return path.resolve(p);
+  }
+};
+const sameDir = (a, b) => real(a).toLowerCase() === real(b).toLowerCase();
 
 /**
  * Finds `name` on PATH, ignoring the current directory and relative PATH
