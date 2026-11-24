@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-24)
 
 First version.
 
@@ -25,4 +25,5 @@ First version.
   - `.envrc` values are single-quoted, so `$(…)`, backticks and `$VAR` stay literal when direnv sources the file.
   - On Windows, `powershell`, `reg`, `where`, `cmd` and `git` are run from absolute paths (System32, or PATH without the current directory), so a planted `git.exe` in a cloned repository can't run; a `claude` found inside the project is ignored.
   - Over MCP, the first clipboard save of a session is always confirmed on the local page, even when the provider prefix matches.
+  - The diagnostic log moved to `~/.keepkeys/mcp.log` (private folder); the paste-page address is no longer sent to the agent; fish quoting, shorter key endings for short values, 0600 on existing secrets files, atomic `setup --rules`, control characters stripped from manifest text, and a warning for `--allow-any-file`.
 - Release workflow (`.github/workflows/release.yml`): npm trusted publishing with provenance.
