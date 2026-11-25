@@ -2,12 +2,15 @@ import fs from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
 import readline from 'node:readline';
 import { KeepKeysError } from './errors.js';
+import { safeCommand } from './winbin.js';
 
 // Tests point this at a file that stands in for the system clipboard.
 const fakeFile = () => process.env.KEEPKEYS_FAKE_CLIPBOARD;
 
 function run(cmd, args, input) {
-  const r = spawnSync(cmd, args, { input, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 20 });
+  const bin = safeCommand(cmd);
+  if (!bin) return null;
+  const r = spawnSync(bin, args, { input, encoding: 'utf8', windowsHide: true, maxBuffer: 1 << 20 });
   if (r.error || r.status !== 0) return null;
   return r.stdout;
 }
@@ -197,7 +200,7 @@ export function watchClipboard(onChange, { intervalMs = 400, log = () => {}, sta
   // Windows: one long-lived PowerShell reports changes. If it does not report
   // the current clipboard quickly, or dies, fall back to polling, which starts
   // a short PowerShell every second: slower, but works wherever reading works.
-  const child = spawn('powershell.exe', [...PS_ARGS, encodePs(WIN_WATCH)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+  const child = spawn(safeCommand('powershell.exe'), [...PS_ARGS, encodePs(WIN_WATCH)], { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   let stderr = '';
   let started = false;
   let lastStamp = null;

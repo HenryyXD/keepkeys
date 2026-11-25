@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { safeCommand, insideCwd } from './winbin.js';
 import { fileURLToPath } from 'node:url';
 import { KeepKeysError, EXIT } from './errors.js';
 import { readText, atomicWrite } from './fsutil.js';
@@ -57,10 +58,10 @@ function mergeServer(file, entry, remove) {
 function findClaude() {
   const override = process.env.KEEPKEYS_CLAUDE_BIN;
   if (override) return override === 'none' ? null : override;
-  const r = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['claude'], { encoding: 'utf8', windowsHide: true });
+  const r = spawnSync(safeCommand(process.platform === 'win32' ? 'where' : 'which') ?? 'which', ['claude'], { encoding: 'utf8', windowsHide: true });
   if (r.status !== 0) return null;
   const hits = r.stdout.split(/\r?\n/).filter(Boolean);
-  if (process.platform === 'win32') return hits.find((h) => /\.(exe|cmd|bat)$/i.test(h)) ?? null;
+  if (process.platform === 'win32') return hits.find((h) => /\.(exe|cmd|bat)$/i.test(h) && !insideCwd(h)) ?? null;
   return hits[0] ?? null;
 }
 
@@ -68,7 +69,7 @@ function runClaude(bin, args) {
   // .cmd shims cannot be spawned directly on Windows; go through cmd.exe.
   if (/\.(cmd|bat)$/i.test(bin)) {
     const quoted = [bin, ...args].map((a) => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a)).join(' ');
-    return spawnSync('cmd.exe', ['/d', '/s', '/c', `"${quoted}"`], { encoding: 'utf8', windowsHide: true, windowsVerbatimArguments: true });
+    return spawnSync(safeCommand('cmd.exe'), ['/d', '/s', '/c', `"${quoted}"`], { encoding: 'utf8', windowsHide: true, windowsVerbatimArguments: true });
   }
   return spawnSync(bin, args, { encoding: 'utf8', windowsHide: true });
 }
@@ -99,7 +100,7 @@ function writeRules(root, remove) {
     let next = text.replace(block, '\n');
     if (!remove) next = `${next.replace(/\s*$/, '')}${next.trim() ? '\n\n' : ''}${RULES}\n`;
     if (next !== text) {
-      fs.writeFileSync(f, next);
+      atomicWrite(f, next);
       err(`  ${remove ? 'removed rules from' : 'added rules to'} ${path.relative(root, f) || f}`);
     }
   }

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { safeCommand } from './winbin.js';
 import { readText, inheritedOwner } from './fsutil.js';
 
 export function findGitRoot(start) {
@@ -14,7 +15,9 @@ export function findGitRoot(start) {
 }
 
 function git(args, cwd) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8', windowsHide: true });
+  const bin = safeCommand('git');
+  if (!bin) return null; // git not installed (or only in the working directory)
+  const r = spawnSync(bin, args, { cwd, encoding: 'utf8', windowsHide: true });
   if (r.error) return null; // git not installed
   return r.status;
 }

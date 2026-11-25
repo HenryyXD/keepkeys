@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { isHeadless, onPath } from './env.js';
+import { safeCommand } from './winbin.js';
 
 /**
  * True when a browser page can be opened in front of the person: not with
@@ -29,7 +30,9 @@ export function openBrowser(url) {
         ? ['open', [url]]
         : ['xdg-open', [url]];
   try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    const bin = safeCommand(cmd);
+    if (!bin) return false;
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.on('error', () => {});
     child.unref();
     return true;

@@ -103,7 +103,7 @@ export function suggestWhere(name) {
 }
 
 export function lastFour(value) {
-  return value.length > 8 ? `…${value.slice(-4)}` : '…';
+  return value.length >= 16 ? `…${value.slice(-4)}` : '…';
 }
 
 const looksLikePath = (v) => /^[A-Za-z]:[\\/]|^\.{0,2}\/|^~\//.test(v) || (/[\\/]/.test(v) && /\.[A-Za-z0-9]{1,5}$/.test(v));

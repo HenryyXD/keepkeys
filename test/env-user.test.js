@@ -67,3 +67,10 @@ test('env:user sets a real Windows user variable', { skip: process.platform !== 
   }
   assert.equal(windowsHasUserEnv(name), false);
 });
+
+test('fish quoting escapes only backslash and single quote', async () => {
+  const { fishQuote } = await import('../src/destinations/env-user.js');
+  assert.equal(fishQuote('abc'), "'abc'");
+  assert.equal(fishQuote("it's"), "'it\\'s'");
+  assert.equal(fishQuote('a\\'), "'a\\\\'");
+});

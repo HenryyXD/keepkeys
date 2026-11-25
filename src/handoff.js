@@ -43,7 +43,8 @@ export async function confirmViaPage({ name, destinations, ending, chars, warnin
  * - Only a copy made after the wait starts counts: whatever was already in
  *   the clipboard is ignored, so a request can't silently grab it. Copying the
  *   same text again does count (on Windows and macOS).
- * - A value with the provider prefix the name expects is saved at once.
+ * - A value with the provider prefix the name expects is saved at once, except
+ *   the first save of a session when `trust` is given (the MCP server).
  *   Anything else that could be a key (an unknown provider, a mismatch, a
  *   warning such as pk_ in a secret variable) is saved only after `confirm`.
  * - `useCurrent: true` (the CLI, after asking in the terminal) takes the
@@ -63,6 +64,7 @@ export function collectViaClipboard(
     log = () => {},
     debug = () => {},
     notify = desktopNotify,
+    trust = null, // { confirmed }: when given, the first save also needs a confirmation
   } = {},
 ) {
   const { name, destinations } = request;
@@ -114,7 +116,7 @@ export function collectViaClipboard(
           notify('keepkeys: key rejected', `${r.check.detail}. Copy the right ${name}.`);
           return;
         }
-        if (!preconfirmed && (!strong || r.warnings.length)) {
+        if (!preconfirmed && (!strong || r.warnings.length || (trust && !trust.confirmed))) {
           debug(`asking the user to confirm a ${r.value.length}-char value for ${name}`);
           log(`asking the user to confirm the copied value for ${name} in the browser`);
           notify(`keepkeys: confirm ${name}`, `Is the value ending ${lastFour(r.value)} the right key? Answer in the browser page.`);
@@ -126,6 +128,7 @@ export function collectViaClipboard(
             notify('keepkeys: not saved', `Copy the right ${name}${where}; keepkeys is still waiting.`);
             return;
           }
+          if (trust) trust.confirmed = true;
         }
         const result = commit(name, r.value, destinations);
         const cleared = clearClipboardIf(raw);

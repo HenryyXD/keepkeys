@@ -29,7 +29,8 @@ export function atomicWrite(file, content) {
   try {
     st = fs.statSync(file);
   } catch {}
-  const mode = st ? st.mode & 0o777 : 0o600;
+  let mode = st ? st.mode & 0o777 : 0o600;
+  if (st && process.platform !== 'win32') mode &= 0o700; // a secrets file is never group- or world-readable
   const uid = typeof process.getuid === 'function' ? process.getuid() : null;
   let owner = null; // [uid, gid] the result must have, when it differs from ours
   if (uid !== null) {
