@@ -40,7 +40,7 @@ If nothing arrives within 5 minutes, the agent is told the copy didn't register.
 
 ## Troubleshooting
 
-- **It keeps waiting after you copied.** Look at `keepkeys-mcp.log` in your temp folder (`%TEMP%` on Windows, `$TMPDIR` or `/tmp` elsewhere). For each clipboard change it records the length and whether it looked like the key, **never the text**. "looks like a key: false" means the copy wasn't the key, or had another provider's prefix.
+- **It keeps waiting after you copied.** Look at `~/.keepkeys/mcp.log` (in your home folder). For each clipboard change it records the length and whether it looked like the key, **never the text**. "looks like a key: false" means the copy wasn't the key, or had another provider's prefix.
 - **New code isn't used.** Each session starts its own server, so start a new session after updating keepkeys.
 
 ## Without MCP

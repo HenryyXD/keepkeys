@@ -66,3 +66,18 @@ test('hasValue sees only non-empty assignments', () => {
   assert.equal(hasValue('export A=1\n', 'A'), true);
   assert.equal(hasValue('AB=1\n', 'A'), false);
 });
+
+test('.envrc values are inert when bash sources them', { skip: process.platform === 'win32' }, async () => {
+  const { spawnSync } = await import('node:child_process');
+  const evil = ["a'$(touch PWNED)`touch PWNED2`$HOME", 'line1\nline2 $(touch PWNED)', '~/x', "it's"];
+  for (const value of evil) {
+    const text = upsert('', 'K', value, { exportAll: true }).text;
+    assert.match(text, /^export K='/, `quoted with single quotes: ${text}`);
+    const r = spawnSync('bash', ['-c', `set -e; cd "$(mktemp -d)"; ${text}\nprintf %s "$K"; test ! -e PWNED && test ! -e PWNED2`], { encoding: 'utf8' });
+    if (r.error) return; // no bash on this machine
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stdout, value);
+  }
+  assert.equal(formatValue('sk_live_abc', { shell: true }), 'sk_live_abc');
+  assert.equal(formatValue("it's", { shell: true }), `'it'\\''s'`);
+});

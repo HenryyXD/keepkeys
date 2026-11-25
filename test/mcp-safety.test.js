@@ -50,6 +50,9 @@ test('a new request replaces one that is still waiting', async () => {
     assert.match(first.result.content[0].text, /cancelled: .*replaced by a newer keepkeys request/);
     await sleep(600);
     s.copy(OPENROUTER);
+    const url = await waitForPageUrl(s.r.out); // first save of the session: confirmed on the page
+    assert.equal(read(s.dir, '.env.local'), null, 'saved before confirming');
+    await post(url, 'confirm', { name: 'OPENROUTER_API_KEY', accept: true });
     const second = await s.reply(2);
     assert.match(second.result.content[0].text, /ok: saved OPENROUTER_API_KEY \(ends in …SAFE\)/);
     // Only one watcher ran: the key was written once, by the second request.

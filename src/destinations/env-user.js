@@ -4,6 +4,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { safeCommand } from '../winbin.js';
 import { readText, atomicWrite } from '../fsutil.js';
 import { detectEol } from '../dotenv.js';
 import { KeepKeysError } from '../errors.js';
@@ -12,6 +13,11 @@ const MARK = '# keepkeys';
 
 export function shellQuote(value) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+// In fish, single quotes only treat \ and ' as escapes.
+export function fishQuote(value) {
+  return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 export function rcFileFor({ shell = process.env.SHELL ?? '', platform = process.platform, home = os.homedir() } = {}) {
@@ -31,7 +37,7 @@ function rcLineRegex(name, fish) {
 /** Replaces every assignment of NAME in the rc text, or appends one. Pure. */
 export function upsertRc(text, name, value, { fish = false } = {}) {
   const eol = detectEol(text);
-  const line = fish ? `set -gx ${name} ${shellQuote(value)}  ${MARK}` : `export ${name}=${shellQuote(value)}  ${MARK}`;
+  const line = fish ? `set -gx ${name} ${fishQuote(value)}  ${MARK}` : `export ${name}=${shellQuote(value)}  ${MARK}`;
   const re = rcLineRegex(name, fish);
   const lines = text.length ? text.split(/\r?\n/) : [];
   let replaced = false;
@@ -62,7 +68,7 @@ export function rcHas(text, name, { fish = false } = {}) {
 // console code page can mangle it.
 function powershell(script, input) {
   const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  const r = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
+  const r = spawnSync(safeCommand('powershell.exe'), ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
     input,
     encoding: 'utf8',
     windowsHide: true,
@@ -81,7 +87,7 @@ export function windowsSetUserEnv(name, value) {
 }
 
 export function windowsHasUserEnv(name) {
-  const r = spawnSync('reg', ['query', 'HKCU\\Environment', '/v', name], { encoding: 'utf8', windowsHide: true });
+  const r = spawnSync(safeCommand('reg'), ['query', 'HKCU\\Environment', '/v', name], { encoding: 'utf8', windowsHide: true });
   return r.status === 0;
 }
 

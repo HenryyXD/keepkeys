@@ -3,7 +3,7 @@
 Things automated tests can't cover: real agents, the real clipboard, notifications, your browser.
 Use a throwaway project (e.g. `mkdir kk-play && cd kk-play && git init`) and **fake keys**. A fake key only needs the right prefix, e.g. `sk-or-v1-` followed by 64 characters, or `sk_test_` followed by 24.
 
-If something misbehaves, `%TEMP%\keepkeys-mcp.log` shows what the MCP server saw (lengths and yes/no only, never values).
+If something misbehaves, `~/.keepkeys/mcp.log` shows what the MCP server saw (lengths and yes/no only, never values).
 
 ## A. Agent flow in Claude Code (the main one)
 

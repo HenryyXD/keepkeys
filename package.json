@@ -36,5 +36,13 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/HenryyXD/keepkeys.git"
+  },
+  "homepage": "https://github.com/HenryyXD/keepkeys#readme",
+  "bugs": {
+    "url": "https://github.com/HenryyXD/keepkeys/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

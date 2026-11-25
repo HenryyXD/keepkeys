@@ -14,7 +14,16 @@ export function stripBom(text) {
 
 const SAFE_UNQUOTED = /^[A-Za-z0-9_\-.,/:+=@~%^]*$/;
 
-export function formatValue(value) {
+// direnv sources .envrc with bash, so there the value must be fully inert:
+// single quotes keep $(...), backticks and $VAR literal, and a quote inside
+// the value is written as '\''. A leading ~ would be expanded, so it is quoted.
+const SAFE_UNQUOTED_SHELL = /^[A-Za-z0-9_\-.,/:+=@%^]*$/;
+
+export function formatValue(value, { shell = false } = {}) {
+  if (shell) {
+    if (SAFE_UNQUOTED_SHELL.test(value)) return value;
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+  }
   if (SAFE_UNQUOTED.test(value)) return value;
   if (!value.includes("'") && !/[\r\n]/.test(value)) return `'${value}'`;
   const escaped = value
@@ -86,13 +95,13 @@ export function upsert(text, name, value, { exportAll = false } = {}) {
       if (i + 1 < lines.length) i++;
     }
     if (replaced) continue; // drop later duplicates; the first one now holds the value
-    out.push(`${exportAll ? 'export ' : m[1] ?? ''}${name}=${formatValue(value)}`);
+    out.push(`${exportAll ? 'export ' : m[1] ?? ''}${name}=${formatValue(value, { shell: exportAll })}`);
     replaced = true;
   }
 
   if (!replaced) {
     while (out.length && out[out.length - 1] === '') out.pop();
-    out.push(`${exportAll ? 'export ' : ''}${name}=${formatValue(value)}`);
+    out.push(`${exportAll ? 'export ' : ''}${name}=${formatValue(value, { shell: exportAll })}`);
   }
   let result = out.join(eol);
   if (!result.endsWith(eol)) result += eol;

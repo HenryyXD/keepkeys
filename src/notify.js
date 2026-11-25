@@ -2,6 +2,7 @@
 // key, or ignored a copy, even when the agent's chat is out of view.
 // Messages never contain a secret: at most its last 4 characters.
 import { spawn } from 'node:child_process';
+import { safeCommand } from './winbin.js';
 
 const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
 const asQuote = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -29,7 +30,9 @@ export function notify(title, body) {
   if (process.env.KEEPKEYS_NO_NOTIFY) return false;
   const [cmd, args] = notifyCommand(title, body);
   try {
-    const child = spawn(cmd, args, { stdio: 'ignore', detached: true, windowsHide: true });
+    const bin = safeCommand(cmd);
+    if (!bin) return false;
+    const child = spawn(bin, args, { stdio: 'ignore', detached: true, windowsHide: true });
     child.on('error', () => {});
     child.unref();
     return true;
