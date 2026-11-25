@@ -42,7 +42,6 @@
     "url": "https://github.com/HenryyXD/keepkeys/issues"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   }
 }
