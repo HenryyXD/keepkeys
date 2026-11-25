@@ -50,8 +50,10 @@ const posixQuote = (s) => (/^[A-Za-z0-9_\-.,/:@%+=]+$/.test(s) ? s : `'${s.repla
 // same way. Anything else ($ ` % " ' ; & | < > ^ ( ) …) means something to one
 // of the shells even inside quotes, so it is not quoted at all: null.
 function winQuote(s) {
-  if (/^[A-Za-z0-9_\-.:\\/]+$/.test(s)) return s;
-  if (/^[A-Za-z0-9_\-.:\\/ ,@+=]+$/.test(s)) return `"${s}"`;
+  // A "~" is only special at the start of a word, so the 8.3 short names that
+  // Windows puts in temp paths (PCGAME~1) are fine anywhere but first.
+  if (/^[A-Za-z0-9_\-.:\\/][A-Za-z0-9_\-.:\\/~]*$/.test(s)) return s;
+  if (/^[A-Za-z0-9_\-.:\\/][A-Za-z0-9_\-.:\\/ ,@+=~]*$/.test(s)) return `"${s}"`;
   return null;
 }
 
