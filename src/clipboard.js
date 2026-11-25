@@ -19,7 +19,9 @@ function run(cmd, args, input) {
 // owning the clipboard; if it inherited our stdout pipe, spawnSync would wait
 // until something else is copied, and keepkeys would hang after saving.
 function runInputOnly(cmd, args, input) {
-  const r = spawnSync(cmd, args, { input, stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
+  const bin = safeCommand(cmd); // never a binary planted in the working directory
+  if (!bin) return null;
+  const r = spawnSync(bin, args, { input, stdio: ['pipe', 'ignore', 'ignore'], windowsHide: true });
   return r.error || r.status !== 0 ? null : '';
 }
 

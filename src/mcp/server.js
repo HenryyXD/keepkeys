@@ -172,7 +172,7 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
     log(opened ? `opened ${url} in the browser for the user to paste into` : `open ${url} to paste the key`);
     if (!opened && isHeadless()) {
       const { port } = new URL(url);
-      info(`the paste page runs on this machine (no browser here): ask the user to forward port ${port} (ssh -N -L ${port}:127.0.0.1:${port} <this server>) and open the address keepkeys shows in its terminal output`);
+      info(`the paste page runs on this machine (no browser here): ask the user to forward port ${port} (ssh -N -L ${port}:127.0.0.1:${port} <this server>) and open the address keepkeys prints in its terminal output (also in ~/.keepkeys/mcp.log)`);
     }
   };
 

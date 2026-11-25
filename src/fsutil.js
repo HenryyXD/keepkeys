@@ -50,7 +50,7 @@ export function atomicWrite(file, content) {
   }
   if (owner) {
     try {
-      fs.chownSync(tmp, owner[0], owner[1]);
+      fs.lchownSync(tmp, owner[0], owner[1]);
     } catch {
       // Can't give the file its owner (not root; or an id unmapped in a user
       // namespace, EINVAL). An existing file is written in place instead,
@@ -95,7 +95,7 @@ export function mkdirOwned(dir) {
   if (!owner || !first) return;
   for (let d = dir; d.length >= first.length; d = path.dirname(d)) {
     try {
-      fs.chownSync(d, owner[0], owner[1]);
+      fs.lchownSync(d, owner[0], owner[1]) // lchown: a dir swapped for a symlink must not redirect root's chown;
     } catch {}
     if (d === first) break;
   }
