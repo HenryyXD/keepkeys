@@ -30,4 +30,11 @@ jobs:
           v="$(node -p "require('./package.json').version")"
           [ "${GITHUB_REF_NAME#v}" = "$v" ] || { echo "tag $GITHUB_REF_NAME does not match version $v"; exit 1; }
       - run: npm test
-      - run: npm publish --provenance --access public
+      - name: Publish (skipped when this version is already on npm)
+        run: |
+          v="$(node -p "require('./package.json').version")"
+          if npm view "keepkeys@$v" version >/dev/null 2>&1; then
+            echo "keepkeys@$v is already published; nothing to do"
+          else
+            npm publish --provenance --access public
+          fi
