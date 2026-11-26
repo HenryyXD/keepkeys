@@ -12,8 +12,10 @@ import { collectViaPage, collectViaClipboard, confirmViaPage } from '../handoff.
 import { clipboardAvailable } from '../clipboard.js';
 import { suggestWhere, normalizeExpectation } from '../detect.js';
 import { validateName } from '../paths.js';
+import { isHeadless, isRemoteSession, handoffCommand } from '../env.js';
+import { mayShowConfirmUrl } from '../open-browser.js';
 
-const VERSION = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version;
+import { VERSION } from '../version.js';
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 
 const INSTRUCTIONS = `keepkeys stores API keys and other secrets in the project's env files without the value ever passing through this conversation.
@@ -24,6 +26,7 @@ const INSTRUCTIONS = `keepkeys stores API keys and other secrets in the project'
 - If keepkeys can't tell for sure that the copy is the right key (unknown format, different prefix), a browser page asks the user to confirm before anything is saved. You can't confirm for them.
 - You only get a confirmation with the last 4 characters. After it, tell the user it was received (ending …xxxx) so they know the copy worked. On a timeout, the copy did not register: ask them to copy again, or call request_secret with method "browser" so they can paste into a page.
 - If you know the key's format, pass expected_prefixes (e.g. ["sk-ant-"] for Anthropic, ["sk_live_", "sk_test_"] for Stripe) or expected_pattern. Without them keepkeys guesses from the variable name and only warns when unsure; a format warning is not proof the key is wrong.
+- On a server or over SSH (no display) nobody can copy a key or open a page on this machine. Then request_secret and request_missing_secrets return at once with a command instead: give the user that exact command to run in their own terminal (an SSH session to this machine is fine; the key is typed into a hidden prompt), wait until they say it is done, then call secrets_status. Never ask them to paste the key into the chat instead.
 - Ask for one secret at a time: a new request replaces one that is still waiting.
 - To double-check later, call secrets_status.`;
 
@@ -35,6 +38,7 @@ const TOOLS = [
       'Get a secret (API key, token, password) from the user without it passing through this chat, and write it to the given env files. ' +
       'method "clipboard" (default): the user copies the key (e.g. clicks Copy in the provider dashboard) after the request starts and keepkeys picks it up; tell the user what to copy BEFORE calling. Unrecognised values are confirmed by the user in a browser page first. ' +
       'method "browser": a page opens on their computer for them to paste into. ' +
+      'On a server or over SSH (no display) it returns at once with a command for the user to run in their own terminal; pass that on verbatim, then call secrets_status. ' +
       'If you know the key\'s format, pass expected_prefixes (e.g. ["sk-ant-"] for Anthropic, ["sk_live_", "sk_test_"] for Stripe) or expected_pattern; they only sharpen the warning shown to the user and never skip their confirmation. ' +
       'You never see the value: the result only says where it was saved and its last 4 characters. ' +
       'Blocks until the key arrives or the wait ends (clipboard 5 min, browser 10 min).',
@@ -162,9 +166,15 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
   }
 
   // The page address goes to the log only, never to the agent: anyone who has it
-  // can fill the page in.
-  const announce = (url, opened) =>
+  // can fill the page in. Over SSH the agent is only told that a port must be
+  // forwarded; the user finds the address in the terminal/log.
+  const announce = (url, opened) => {
     log(opened ? `opened ${url} in the browser for the user to paste into` : `open ${url} to paste the key`);
+    if (!opened && isHeadless()) {
+      const { port } = new URL(url);
+      info(`the paste page runs on this machine (no browser here): ask the user to forward port ${port} (ssh -N -L ${port}:127.0.0.1:${port} <this server>) and open the address keepkeys prints in its terminal output (also in ~/.keepkeys/mcp.log)`);
+    }
+  };
 
   function describeResults(results, base) {
     const lines = results.map((r) => {
@@ -190,6 +200,23 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
     if (waiting && waiting !== ctx.controller) waiting.abort(new Error('replaced by a newer keepkeys request'));
     waiting = ctx.controller;
     return ctx.controller.signal;
+  }
+
+  // No one can copy or open a page on this machine: hand the agent the one
+  // command the person runs in their own terminal. It never holds a value.
+  function handoffText(base, args, names) {
+    const cmd = handoffCommand(base, args);
+    const why = isRemoteSession() ? 'this is an SSH session' : 'this machine has no display';
+    diag(`handoff for ${names.join(', ')}: ${why}`);
+    return [
+      `not saved yet: ${why}, so nobody can copy ${names.join(', ')} or open a page here.`,
+      'Ask the user to run this command in their own terminal on this machine (an SSH session is fine). It asks with a hidden prompt; the value never shows on screen, in shell history or in this chat:',
+      '',
+      `    ${cmd}`,
+      '',
+      `Tell them, in one line: "Run this in your terminal and paste ${names.length === 1 ? 'the key' : 'each key'} when it asks (it stays hidden): ${cmd}".`,
+      'When they say it is done, call secrets_status to confirm. Do not ask them to paste the key into the chat.',
+    ].join('\n');
   }
 
   async function callTool(name, args, ctx = { controller: new AbortController() }) {
@@ -238,6 +265,11 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
         description: args?.description || entry?.description || null,
       };
       let method = args?.method === 'browser' ? 'browser' : 'clipboard';
+      if (method === 'clipboard' && isHeadless()) {
+        const cli = ['add', keyName];
+        if (Array.isArray(args?.destinations) && args.destinations.length) cli.push('--to', dests.map((d) => d.label).join(','));
+        return handoffText(base, cli, [keyName]);
+      }
       if (method === 'clipboard' && !clipboardAvailable()) {
         info('the clipboard cannot be read here; using the browser page instead');
         method = 'browser';
@@ -251,7 +283,7 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
       const confirm = (details) =>
         confirmViaPage(details, {
           signal,
-          announce: (url, opened) => log(opened ? 'asked the user to confirm the copied value in the browser' : `open ${url} to confirm the copied value`),
+          announce: (url, opened) => (opened ? log('asked the user to confirm the copied value in the browser') : mayShowConfirmUrl() && log(`open ${url} to confirm the copied value`)),
         });
       const results =
         method === 'clipboard'
@@ -272,6 +304,7 @@ export function runServer({ root = null, allowEnvUser = false, input = process.s
         if (!ds.every((d) => d.has(k.name))) todo.push({ name: k.name, destinations: ds, where: k.where, description: k.description });
       }
       if (!todo.length) return 'Every key in the manifest is already set.';
+      if (isHeadless()) return handoffText(base, [], todo.map((t) => t.name));
       const results = await collectViaPage(todo, { announce, signal: startWaiting(ctx) });
       return describeResults(results, base);
     }

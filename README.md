@@ -9,12 +9,12 @@
 <p align="center">
   <a href="https://github.com/HenryyXD/keepkeys/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/HenryyXD/keepkeys/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Node 20 or newer" src="https://img.shields.io/badge/node-%E2%89%A520-339933.svg">
+  <img alt="Node 18.19 or newer" src="https://img.shields.io/badge/node-%E2%89%A518.19-339933.svg">
   <img alt="Zero dependencies" src="https://img.shields.io/badge/dependencies-zero-brightgreen.svg">
 </p>
 
 <p align="center">
-  <b>Don't paste API keys into your AI chat. Just copy the key; keepkeys writes it to <code>.env.local</code>.</b>
+  <b>Don't paste API keys into your AI chat. Just copy the key; keepkeys writes it to your <code>.env</code> file.</b>
   <br>
   <sub><b>K</b>eys <b>E</b>xcluded from <b>E</b>very <b>P</b>rompt</sub>
 </p>
@@ -25,9 +25,9 @@
   <sub>Keys keepkeys recognises (Stripe, OpenAI, Anthropic, …) are saved straight away; others, like this made-up Acme key, get a one-click confirm page first.</sub>
 </p>
 
-Your coding agent needs an API key in `.env.local`. Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
+Your coding agent needs an API key in `.env` (or `.env.local`). Instead of pasting it into the chat, or creating the file by hand, you **just copy it**: click "Copy" in the provider's dashboard. keepkeys picks it up from the clipboard, writes it to the right files, adds them to `.gitignore` and clears the clipboard. A desktop notification confirms it. The agent only learns `ok, ends in …4242`.
 
-- **Zero dependencies.** One `npx` command, Node 20+, Windows, macOS and Linux.
+- **Zero dependencies.** One `npx` command, Node 18.19+, Windows, macOS and Linux, including servers over SSH.
 - **Works with any agent.** It has an MCP server for Claude Code, Cursor and other MCP clients. A plain CLI covers everything else.
 - **The value stays out of the chat.** Tool results, logs and notifications show only the last 4 characters (`…4242`).
 - **Small and honest.** It doesn't try to be a vault (see [What this is NOT](#what-this-is-not)).
@@ -39,6 +39,19 @@ npx keepkeys setup
 ```
 
 This registers keepkeys with Claude Code and/or Cursor, whichever it finds; start a new agent session, and the next time the agent needs a key it asks you to copy it instead of pasting it. Details and other agents are under [Install](#install).
+
+### Quick start by situation
+
+| Where the agent runs | What you do |
+|---|---|
+| **Your own computer** (macOS, Windows, Linux desktop) | `npx keepkeys setup` once. When the agent asks, click "Copy" in the provider's dashboard. |
+| **A server you reach over SSH** (homeserver, VPS, no desktop) | The agent gives you one command, e.g. `npx -y keepkeys --root ~/app`. Run it in your SSH terminal and paste each key into the hidden prompt. That's it. |
+| **A server without Node** | Ubuntu 24.04 / Debian 12: `sudo apt install -y nodejs npm` (Node 18.19+ is enough), then the row above. |
+| **A dev container, Codespace or VM** you can open a terminal in | Same as the SSH row: run the command the agent prints in that terminal. |
+| **A hosted agent you have no terminal into** (a web-based coding agent's sandbox) | keepkeys can't reach it without sending your key through someone else's server, which it never does. Use that platform's own secrets or environment settings. |
+| **The project belongs to another user**, or you use `sudo` | Either works: keepkeys keeps the file's owner and mode. `sudo -u <owner> npx keepkeys` is the cleanest. |
+
+Running it yourself in a terminal is always the shortest path: `npx keepkeys` reads `.env.example`, lists what is missing and asks for each key with a hidden prompt (one paste per key, no Enter).
 
 ---
 
@@ -83,7 +96,8 @@ A click on "Copy" can fail without any sign. So keepkeys tells you what happened
 ### Other ways to hand over a key
 
 - **Browser page:** `--browser`, or `method: "browser"` in MCP. A page opens on `127.0.0.1`; you paste into it. Use it when the clipboard can't be read (e.g. Linux without `xclip`/`wl-clipboard`) or when you prefer pasting. keepkeys switches to it on its own if the clipboard isn't available.
-- **Terminal prompt:** when you run `npx keepkeys add NAME` yourself in a terminal, a hidden prompt appears. One Ctrl+V submits it, with no Enter.
+- **Terminal prompt:** when you run `npx keepkeys` or `npx keepkeys add NAME` yourself in a terminal, including over SSH, a hidden prompt appears. One paste submits it, with no Enter. Nothing is echoed, and nothing reaches the shell history: the value is never an argument.
+- **On a server or over SSH, the agent hands you a command.** Without a terminal and without a display, keepkeys can't watch a clipboard or open a page that you would see. So instead of waiting, it prints the one command for you to run in your own terminal (exit code 4), and the MCP tools return it to the agent at once. See [For agents](#for-agents).
 
 Every route cleans up paste accidents (spaces, quotes, a pasted `NAME=` prefix) and checks the provider prefix. For example, it warns before storing a `pk_` key in `STRIPE_SECRET_KEY`.
 
@@ -162,11 +176,11 @@ npx keepkeys list --json                                 # status for scripts an
 
 | Option | Meaning |
 |---|---|
-| `--to a,b` | Destinations: env files and/or `env:user`. Defaults to the manifest, then `.env.local`. |
+| `--to a,b` | Destinations: env files and/or `env:user`. Defaults to the manifest; else an existing `.env.local` or `.env`; else `.env.local` in Next.js / Vite / Astro / SvelteKit / CRA / Vue CLI projects; else `.env`, which every dotenv loader reads. |
 | `--where URL` | Where to get the key; shown while asking. Known providers get a link automatically. |
 | `--description TEXT` | What the key is for. |
-| `--clipboard` | Wait for you to copy the key, then clear the clipboard. This is the default when there is no terminal. |
-| `--browser` | Paste into a local page instead. This is the default for several keys at once without a terminal. |
+| `--clipboard` | Wait for you to copy the key, then clear the clipboard. The default for an agent on a desktop. Fails at once where there is no clipboard (servers, SSH). |
+| `--browser` | Paste into a local page instead. The default for several keys at once on a desktop. Over SSH it prints the `ssh -L` tunnel to open. |
 | `--stdin` | Read from standard input, for scripts. |
 | `--timeout SEC` | How long to wait (clipboard 300, browser 600). |
 | `--check` | Validate with the provider: Anthropic, OpenAI, OpenRouter, Stripe, GitHub, Groq, Google, Hugging Face. |
@@ -233,6 +247,16 @@ Env files in the project, or `env:user` for a variable every new terminal sees. 
 
 </details>
 
+## For agents
+
+What to tell the user depends on where you run. keepkeys works this out itself; follow what it returns.
+
+- **Desktop, MCP** (`request_secret`): say *"When the keepkeys notification appears, copy your `NAME` from `<where>`"*, then call the tool. After it returns, confirm *"received, ends in …abcd"*.
+- **Server or SSH, MCP**: `request_secret` / `request_missing_secrets` return at once with `not saved yet:` and a command. Give the user that exact command in one line: *"Run this in your terminal and paste each key when it asks (it stays hidden): `npx -y keepkeys --root ~/app`"*. When they say it's done, call `secrets_status`.
+- **No MCP, your shell has no terminal**: run `keepkeys` (all missing keys) or `keepkeys add NAME --to .env`. Exit code 4 means the last line of stdout is the command to give the user; then check with `keepkeys list --json`.
+- **Never** ask the user to paste a key into the chat, to put it in a command line (`keepkeys add X --stdin <<< sk-…` lands in the shell history), or to edit `.env` while you watch. If they paste one anyway, tell them to rotate it.
+- **No terminal the user can reach at all** (you run in a hosted sandbox): say so plainly and point them to the platform's secret settings. Don't invent a workaround that routes the key through a third party.
+
 ## Safety rules
 
 The MCP server lets the *agent* choose a name and destinations, so it is strict:
@@ -240,7 +264,7 @@ The MCP server lets the *agent* choose a name and destinations, so it is strict:
 - It only writes env-style files **inside the project**: no `../`, no `~/.ssh/config`, no `src/app.js`. Symlinks that point outside are refused.
 - `env:user` is refused unless you start the server with `--allow-env-user`.
 - Variable names must match `[A-Za-z_][A-Za-z0-9_]*`.
-- The page is served only on `127.0.0.1`, behind a random one-time URL. It checks `Host` and `Origin` and has a strict Content-Security-Policy, so other websites can't post to it. It closes after use or after 10 minutes.
+- The page is served only on `127.0.0.1`, behind a random one-time URL. It only answers to loopback host names (`127.0.0.1`, `localhost`; any port, so an `ssh -L` tunnel works), POSTs must come from that same origin, and it has a strict Content-Security-Policy, so other websites can't post to it (or reach it through DNS rebinding). It closes after use or after 10 minutes.
 - Values never go to stdout, logs, notifications or tool results. Only the last 4 characters are shown, and nothing at all for values of 8 characters or fewer.
 - `--check` sends the key only to that provider's own API, in a header.
 - In clipboard mode only a copy made *after* the request counts, and values keepkeys can't recognise need your click on a confirm page whose address the agent never sees. A request the agent cancels stops watching at once, a new request replaces an older one, and the server exits when the agent disconnects.

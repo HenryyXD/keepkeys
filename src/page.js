@@ -98,7 +98,7 @@ function renderPage(items, { token, nonce, title }) {
   }
   ${cards}
   <p id="all-done">All done. You can close this tab.</p>
-  <footer>keepkeys · this page only works on this computer (127.0.0.1) and stops after use.</footer>
+  <footer>keepkeys · this page only works on this computer (or through an SSH tunnel to it) and stops after use.</footer>
 </main>
 <script nonce="${nonce}">
 (() => {
@@ -227,6 +227,8 @@ function readJson(req) {
  * Returns { url, done, close }. `done` resolves to { reason: 'finished' |
  * 'timeout' | 'closed', results: { [name]: 'saved' | 'skipped' | 'confirmed' | 'declined' } }.
  */
+const LOOPBACK_HOST = /^(127\.0\.0\.1|localhost|\[::1\]):\d{1,5}$/i;
+
 export async function startPage(items, onSubmit = async () => ({ ok: false }), { timeoutMs = 10 * 60 * 1000, title = 'keepkeys' } = {}) {
   const token = crypto.randomBytes(24).toString('base64url');
   const results = {};
@@ -248,9 +250,11 @@ export async function startPage(items, onSubmit = async () => ({ ok: false }), {
       res.end(typeof body === 'string' ? body : JSON.stringify(body));
     };
 
-    // Only this exact origin may talk to us: blocks DNS rebinding and other
-    // local web pages.
-    if (req.headers.host !== `127.0.0.1:${port}`) return reply(403, { error: 'forbidden' });
+    // Only a loopback host name may talk to us: that blocks DNS rebinding.
+    // Any port is fine, so an SSH tunnel (ssh -L 8765:127.0.0.1:PORT) can
+    // use its own local port; POSTs must also come from that same origin.
+    const host = req.headers.host ?? '';
+    if (!LOOPBACK_HOST.test(host)) return reply(403, { error: 'forbidden' });
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
 
     if (req.method === 'GET' && url.pathname === `/${token}`) {
@@ -261,7 +265,7 @@ export async function startPage(items, onSubmit = async () => ({ ok: false }), {
       });
     }
     if (req.method !== 'POST' || !url.pathname.startsWith(`/${token}/`)) return reply(404, { error: 'not found' });
-    if (req.headers.origin !== `http://127.0.0.1:${port}`) return reply(403, { error: 'forbidden' });
+    if (req.headers.origin !== `http://${host}`) return reply(403, { error: 'forbidden' });
     if (!/^application\/json\b/.test(req.headers['content-type'] ?? '')) return reply(415, { error: 'json only' });
 
     let body;

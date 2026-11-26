@@ -15,7 +15,7 @@ npm test
 npm link        # use your checkout as `keepkeys`
 ```
 
-Node 20 or newer. There are no runtime dependencies, and we'd like to keep it that way: a tool that handles secrets should be easy to audit.
+Node 18.19 or newer (CI runs 18, 20, 22 and 24). There are no runtime dependencies, and we'd like to keep it that way: a tool that handles secrets should be easy to audit.
 
 ## Rules for changes
 

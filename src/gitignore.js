@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { safeCommand } from './winbin.js';
-import { readText } from './fsutil.js';
+import { readText, inheritedOwner } from './fsutil.js';
 
 export function findGitRoot(start) {
   let dir = path.resolve(start);
@@ -64,6 +64,12 @@ export function ensureIgnored(file, fallbackRoot) {
   if (next && !next.endsWith('\n')) next += eol;
   if (!/^# keepkeys\b/m.test(next)) next += `${next ? eol : ''}# keepkeys: files that hold secret values${eol}`;
   next += `/${rel}${eol}`;
+  const owner = current ? null : inheritedOwner(path.dirname(gitignore));
   fs.writeFileSync(gitignore, next);
+  if (owner) {
+    try {
+      fs.chownSync(gitignore, owner[0], owner[1]);
+    } catch {}
+  }
   return { added: true, tracked, gitignore };
 }

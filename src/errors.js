@@ -12,4 +12,7 @@ export const EXIT = {
   ERROR: 1,
   USAGE: 2,
   CANCELLED: 3,
+  // Nothing was saved: keepkeys printed the command the person has to run in
+  // their own terminal (an agent on a server or over SSH).
+  HANDOFF: 4,
 };

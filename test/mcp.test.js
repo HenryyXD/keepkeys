@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { tmpProject, write, read, start, waitFor, waitForPageUrl, post } from './helpers.js';
 
-function client(dir, args = ['mcp', '--root', dir]) {
-  const p = start(args, { cwd: dir });
+function client(dir, args = ['mcp', '--root', dir], env = {}) {
+  const p = start(args, { cwd: dir, env });
   let id = 0;
   const messages = () => p.out.stdout.split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const call = async (method, params) => {
@@ -177,6 +177,29 @@ test('request_secret rejects an invalid expected_pattern', async () => {
     const res = await c.call('tools/call', { name: 'request_secret', arguments: { name: 'ACME_API_KEY', method: 'browser', expected_pattern: '(' } });
     assert.equal(res.result.isError, true);
     assert.match(res.result.content[0].text, /expected_pattern/);
+  } finally {
+    c.close();
+  }
+});
+
+test('headless: request_secret and request_missing_secrets answer at once with a command for the user', async () => {
+  const dir = tmpProject();
+  write(dir, '.env.example', 'TELEGRAM_BOT_TOKEN=\nIMAP_PASSWORD=\n');
+  const c = client(dir, ['mcp', '--root', dir], { KEEPKEYS_HEADLESS: '1', KEEPKEYS_SELF: 'keepkeys', SSH_CONNECTION: '10.0.0.2 5555 10.0.0.1 22' });
+  try {
+    await c.init();
+    const t0 = Date.now();
+    const one = await c.call('tools/call', { name: 'request_secret', arguments: { name: 'TELEGRAM_BOT_TOKEN', destinations: ['.env'] } });
+    assert.ok(Date.now() - t0 < 5000, 'did not wait for a clipboard nobody can use');
+    const text = one.result.content[0].text;
+    assert.match(text, /^not saved yet: this is an SSH session/);
+    assert.ok(text.includes(`keepkeys --root ${dir} add TELEGRAM_BOT_TOKEN --to .env`), text);
+    assert.match(text, /call secrets_status/);
+    assert.equal(read(dir, '.env'), null);
+
+    const all = await c.call('tools/call', { name: 'request_missing_secrets', arguments: {} });
+    assert.ok(all.result.content[0].text.includes(`    keepkeys --root ${dir}\n`), all.result.content[0].text);
+    assert.match(all.result.content[0].text, /TELEGRAM_BOT_TOKEN, IMAP_PASSWORD/);
   } finally {
     c.close();
   }

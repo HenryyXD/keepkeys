@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEnvExample, loadManifest } from '../src/manifest.js';
+import { parseEnvExample, loadManifest, defaultDestination } from '../src/manifest.js';
 import { tmpProject, write } from './helpers.js';
 
 test('parses descriptions and directives from .env.example', () => {
@@ -51,10 +51,10 @@ test('keepkeys.json wins over .env.example and fills defaults', () => {
   ]);
 });
 
-test('default destination prefers an existing .env.local, then .env', () => {
+test('default destination prefers an existing .env.local, then .env; a .env.example points at .env', () => {
   const dir = tmpProject();
   write(dir, '.env.example', 'A=\n');
-  assert.deepEqual(loadManifest(dir).keys[0].to, ['.env.local']);
+  assert.deepEqual(loadManifest(dir).keys[0].to, ['.env']);
   write(dir, '.env', '');
   assert.deepEqual(loadManifest(dir).keys[0].to, ['.env']);
   write(dir, '.env.local', '');
@@ -107,4 +107,20 @@ test('invalid keepkeys.json is a clear error', () => {
   const dir = tmpProject();
   write(dir, 'keepkeys.json', '{ nope');
   assert.throws(() => loadManifest(dir), /keepkeys\.json is not valid JSON/);
+});
+
+test('the default fits the project: .env, or .env.local for Next.js / Vite-style projects', () => {
+  const dir = tmpProject();
+  assert.equal(defaultDestination(dir), '.env', 'plain project: docker compose, Python, Go, …');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { express: '^5' } }));
+  assert.equal(defaultDestination(dir), '.env');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { next: '^16' } }));
+  assert.equal(defaultDestination(dir), '.env.local');
+  write(dir, 'package.json', JSON.stringify({ devDependencies: { vite: '^7' } }));
+  assert.equal(defaultDestination(dir), '.env.local');
+  write(dir, 'package.json', '{ not json');
+  assert.equal(defaultDestination(dir), '.env');
+  write(dir, '.env', '');
+  write(dir, 'package.json', JSON.stringify({ dependencies: { next: '^16' } }));
+  assert.equal(defaultDestination(dir), '.env', 'an existing file always wins');
 });

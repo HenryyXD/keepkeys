@@ -1,7 +1,8 @@
 // The two ways to collect a secret without a terminal prompt: watching the
 // clipboard, or a local browser page. Shared by the MCP server and the CLI.
 import { startPage } from './page.js';
-import { openBrowser } from './open-browser.js';
+import { openBrowser, browserAvailable, mayShowConfirmUrl } from './open-browser.js';
+import { KeepKeysError } from './errors.js';
 import { review, commit, summary } from './core.js';
 import { watchClipboard, clearClipboardIf } from './clipboard.js';
 import { clipboardMatch, providersForName, aKey, lastFour } from './detect.js';
@@ -17,6 +18,13 @@ const CONFIRM_TIMEOUT_MS = 2 * 60 * 1000;
  * Resolves to true (save) or false (discard, ignore, timeout, cancel).
  */
 export async function confirmViaPage({ name, destinations, ending, chars, warnings }, { signal, announce = () => {} } = {}) {
+  // Without a browser in front of the person the page could only be reached
+  // through its address, and printing that would let the agent approve.
+  if (!browserAvailable() && !mayShowConfirmUrl()) {
+    throw new KeepKeysError(
+      `this value needs your confirmation, but no browser can be opened here to ask (no display, an SSH session, or no xdg-open). Nothing was saved. Run keepkeys in a terminal instead: it asks with a hidden prompt`,
+    );
+  }
   const page = await startPage([{ name, destinations: destinations.map((d) => d.label), confirm: { ending, chars, warnings } }], undefined, {
     timeoutMs: CONFIRM_TIMEOUT_MS,
     title: `keepkeys · save ${name}?`,
