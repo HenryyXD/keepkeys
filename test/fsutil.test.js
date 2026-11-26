@@ -24,6 +24,15 @@ test('a rewrite keeps the mode, whatever the umask', { skip: !posix }, () => {
   assert.equal(fs.readFileSync(f, 'utf8'), 'A=2\n');
 });
 
+test('a rewrite drops world access but keeps group access', { skip: !posix }, () => {
+  const dir = tmpProject({ git: false });
+  const f = path.join(dir, '.env');
+  fs.writeFileSync(f, 'A=1\n');
+  fs.chmodSync(f, 0o644);
+  atomicWrite(f, 'A=2\n');
+  assert.equal(fs.statSync(f).mode & 0o777, 0o640);
+});
+
 test('new files are private (0600)', { skip: !posix }, () => {
   const dir = tmpProject({ git: false });
   atomicWrite(path.join(dir, '.env'), 'A=1\n');
